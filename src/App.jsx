@@ -1,11 +1,23 @@
-import './index.css';
+import { useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-function App() {
+import LandingPage from "./pages/LandingPage.jsx";
+import AboutPage from "./pages/AboutPage.jsx";
+import ProfilePage from "./pages/ProfilePage.jsx";
+import GamePage from "./pages/GamePage.jsx";
+import ConclusionPage from "./pages/ConclusionPage.jsx";
+
+export default function App() {
+  const [language, setLanguage] = useState("pt");
+
   return (
-    <div>
-      <h1>This or That</h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage language={language} setLanguage={setLanguage} />} />
+        <Route path="/about" element={<AboutPage language={language} setLanguage={setLanguage} />} />
+        <Route path="/game" element={<GamePage language={language} setLanguage={setLanguage} />} />
+        <Route path="/conclusion" element={<ConclusionPage language={language} setLanguage={setLanguage} />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
-
-export default App;
