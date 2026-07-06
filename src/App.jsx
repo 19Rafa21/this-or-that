@@ -11,7 +11,7 @@ export default function App() {
   const [language, setLanguage] = useState("pt");
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/~pg55999">
       <Routes>
         <Route path="/" element={<LandingPage language={language} setLanguage={setLanguage} />} />
         <Route path="/about" element={<AboutPage language={language} setLanguage={setLanguage} />} />

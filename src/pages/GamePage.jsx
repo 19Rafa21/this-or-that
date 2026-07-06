@@ -1,103 +1,81 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import Layout from "../components/Layout.jsx";
 import SmallNavButton from "../components/SmallNavButton.jsx";
 import translations from "../i18n/translations.js";
 
-const codeQuestions = [
+const snippets = [
   {
-    id: "q1",
-    left: `for (let i = 0; i < numbers.length; i++) {
+    id: "s1",
+    code: `for (let i = 0; i < numbers.length; i++) {
   console.log(numbers[i]);
 }`,
-    right: `numbers.forEach((number) => {
+  },
+  {
+    id: "s2",
+    code: `numbers.forEach((number) => {
   console.log(number);
 });`,
   },
   {
-    id: "q2",
-    left: `if (age >= 18) {
-  canVote = true;
-} else {
-  canVote = false;
+    id: "s3",
+    code: `for (const number of numbers) {
+  console.log(number);
 }`,
-    right: `canVote = age >= 18;`,
   },
   {
-    id: "q3",
-    left: `const doubled = [];
+    id: "s4",
+    code: `let i = 0;
 
-for (const n of numbers) {
-  doubled.push(n * 2);
+while (i < numbers.length) {
+  console.log(numbers[i]);
+  i++;
 }`,
-    right: `const doubled = numbers.map(n => n * 2);`,
   },
   {
-    id: "q4",
-    left: `function sum(a, b) {
-  return a + b;
-}`,
-    right: `const sum = (a, b) => a + b;`,
-  },
-  {
-    id: "q5",
-    left: `let total = 0;
-
-for (const price of prices) {
-  total += price;
-}`,
-    right: `const total = prices.reduce((acc, price) => acc + price, 0);`,
-  },
-  {
-    id: "q6",
-    left: `if (user) {
-  name = user.name;
-}`,
-    right: `name = user?.name;`,
-  },
-  {
-    id: "q7",
-    left: `const activeUsers = [];
-
-for (const user of users) {
-  if (user.active) {
-    activeUsers.push(user);
-  }
-}`,
-    right: `const activeUsers = users.filter(user => user.active);`,
-  },
-  {
-    id: "q8",
-    left: `switch (status) {
-  case "open":
-    label = "Open";
-    break;
-  default:
-    label = "Unknown";
-}`,
-    right: `label = status === "open" ? "Open" : "Unknown";`,
-  },
-  {
-    id: "q9",
-    left: `const person = {
-  name: name,
-  age: age
-};`,
-    right: `const person = {
-  name,
-  age
-};`,
-  },
-  {
-    id: "q10",
-    left: `try {
-  saveData(data);
-} catch (error) {
-  console.log(error);
-}`,
-    right: `saveData(data).catch(error => {
-  console.log(error);
+    id: "s5",
+    code: `numbers.map((number) => {
+  console.log(number);
 });`,
+  },
+  {
+    id: "s6",
+    code: `function printNumbers(numbers) {
+  numbers.forEach(function(number) {
+    console.log(number);
+  });
+}`,
+  },
+  {
+    id: "s7",
+    code: `const printNumber = (number) => console.log(number);
+
+numbers.forEach(printNumber);`,
+  },
+  {
+    id: "s8",
+    code: `for (let index in numbers) {
+  console.log(numbers[index]);
+}`,
+  },
+  {
+    id: "s9",
+    code: `numbers.reduce((_, number) => {
+  console.log(number);
+  return null;
+}, null);`,
+  },
+  {
+    id: "s10",
+    code: `[...numbers].forEach(number => console.log(number));`,
+  },
+  {
+    id: "s11",
+    code: `for (const [index, number] of numbers.entries()) {
+  console.log(number);
+}`,
   },
 ];
 
@@ -126,78 +104,157 @@ const profileSteps = [
 ];
 
 function buildFlow() {
-  const codeSteps = codeQuestions.map((question, index) => ({
-    type: "code",
-    number: index + 1,
-    ...question,
-  }));
+  const comparisons = [];
 
-  const flow = [...codeSteps];
+  for (let i = 1; i < snippets.length; i++) {
+    comparisons.push({
+      id: `comparison-${i}`,
+      type: "code",
+      challenger: snippets[i],
+      comparisonNumber: i,
+    });
+  }
 
-  // posições no meio para simular aparecimento "aleatório"
-  const firstPosition = Math.floor(Math.random() * 3) + 2; // entre 2 e 4
-  const secondPosition = Math.floor(Math.random() * 3) + 6; // entre 6 e 8
+  const flow = [...comparisons];
 
-  flow.splice(firstPosition, 0, profileSteps[0]);
-  flow.splice(secondPosition, 0, profileSteps[1]);
+  const firstProfilePosition = Math.floor(Math.random() * 3) + 2; // entre 2 e 4
+  const secondProfilePosition = Math.floor(Math.random() * 3) + 6; // entre 6 e 8
+
+  flow.splice(firstProfilePosition, 0, profileSteps[0]);
+  flow.splice(secondProfilePosition, 0, profileSteps[1]);
 
   return flow;
+}
+
+function getInitialGameState() {
+  const savedState = sessionStorage.getItem("gameState");
+
+  if (savedState) {
+    return JSON.parse(savedState);
+  }
+
+  const initialState = {
+    flow: buildFlow(),
+    currentIndex: 0,
+    currentWinner: snippets[0],
+    answers: [],
+    profileAnswers: [],
+  };
+
+  sessionStorage.setItem("gameState", JSON.stringify(initialState));
+
+  return initialState;
 }
 
 export default function GamePage({ language, setLanguage }) {
   const navigate = useNavigate();
   const text = translations[language].game;
 
-  const [flow] = useState(() => {
-    const savedFlow = sessionStorage.getItem("gameFlow");
+  const [gameState, setGameState] = useState(getInitialGameState);
 
-    if (savedFlow) {
-      return JSON.parse(savedFlow);
-    }
+  const currentStep = gameState.flow[gameState.currentIndex];
+  const totalCodeComparisons = snippets.length - 1;
 
-    const newFlow = buildFlow();
-    sessionStorage.setItem("gameFlow", JSON.stringify(newFlow));
-    return newFlow;
-  });
+  const progress =
+    ((gameState.currentIndex + 1) / gameState.flow.length) * 100;
 
-  const [currentIndex, setCurrentIndex] = useState(() => {
-    return Number(sessionStorage.getItem("currentIndex")) || 0;
-  });
+  const dynamicQuestion =
+    currentStep.type === "code"
+      ? text.questions[gameState.currentIndex % text.questions.length]
+      : currentStep.question[language];
+  function updateGameState(newState) {
+    setGameState(newState);
+    sessionStorage.setItem("gameState", JSON.stringify(newState));
+  }
 
-  const [answers, setAnswers] = useState(() => {
-    const savedAnswers = sessionStorage.getItem("answers");
-    return savedAnswers ? JSON.parse(savedAnswers) : [];
-  });
+  function finishGame(finalState) {
+    sessionStorage.setItem("finalWinner", JSON.stringify(finalState.currentWinner));
+    sessionStorage.setItem("finalAnswers", JSON.stringify(finalState.answers));
+    sessionStorage.setItem(
+      "profileAnswers",
+      JSON.stringify(finalState.profileAnswers)
+    );
 
-  const currentStep = flow[currentIndex];
-  const progress = ((currentIndex + 1) / flow.length) * 100;
+    sessionStorage.removeItem("gameState");
 
-  function goNext(answer) {
-    const updatedAnswers = [
-      ...answers,
-      {
-        stepId: currentStep.id,
-        type: currentStep.type,
-        answer,
-      },
-    ];
+    navigate("/conclusion");
+  }
 
-    setAnswers(updatedAnswers);
-    sessionStorage.setItem("answers", JSON.stringify(updatedAnswers));
-
-    if (currentIndex === flow.length - 1) {
-      sessionStorage.removeItem("gameFlow");
-      sessionStorage.removeItem("currentIndex");
-      sessionStorage.removeItem("answers");
-
-      navigate("/conclusion");
+  function goToNextStep(newState) {
+    if (newState.currentIndex === newState.flow.length - 1) {
+      finishGame(newState);
       return;
     }
 
-    const nextIndex = currentIndex + 1;
+    updateGameState({
+      ...newState,
+      currentIndex: newState.currentIndex + 1,
+    });
+  }
 
-    setCurrentIndex(nextIndex);
-    sessionStorage.setItem("currentIndex", String(nextIndex));
+  function handleCodeChoice(choice) {
+    const selectedSnippet =
+      choice === "left" ? gameState.currentWinner : currentStep.challenger;
+
+    const updatedState = {
+      ...gameState,
+      currentWinner: selectedSnippet,
+      answers: [
+        ...gameState.answers,
+        {
+          comparisonId: currentStep.id,
+          winnerIdBeforeChoice: gameState.currentWinner.id,
+          challengerId: currentStep.challenger.id,
+          selectedSide: choice,
+          selectedSnippetId: selectedSnippet.id,
+          selectedCode: selectedSnippet.code,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+
+    goToNextStep(updatedState);
+  }
+
+  function handleProfileAnswer(answer) {
+    const updatedState = {
+      ...gameState,
+      profileAnswers: [
+        ...gameState.profileAnswers,
+        {
+          questionId: currentStep.id,
+          answer,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+
+    goToNextStep(updatedState);
+  }
+
+  function handleSkip() {
+    if (currentStep.type === "code") {
+      const updatedState = {
+        ...gameState,
+        answers: [
+          ...gameState.answers,
+          {
+            comparisonId: currentStep.id,
+            winnerIdBeforeChoice: gameState.currentWinner.id,
+            challengerId: currentStep.challenger.id,
+            selectedSide: "skipped",
+            selectedSnippetId: gameState.currentWinner.id,
+            selectedCode: gameState.currentWinner.code,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+
+      goToNextStep(updatedState);
+      return;
+    }
+
+    handleProfileAnswer("skipped");
   }
 
   return (
@@ -210,52 +267,82 @@ export default function GamePage({ language, setLanguage }) {
           This or That
         </h1>
 
-        <p className="game-progress">
-          {currentStep.type === "code"
-            ? `Par ${currentStep.number} de 10`
-            : language === "pt"
-            ? "Pergunta de perfil"
-            : "Profile question"}
-        </p>
-
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${progress}%` }} />
-        </div>
-
         {currentStep.type === "code" ? (
-          <>
-            <h2 className="game-question">{text.question}</h2>
+        <>
+          <h2 className="game-question">{dynamicQuestion}</h2>
 
-            <div className="code-grid">
-              <article className="code-area">
-                <div className="code-label">CÓDIGO</div>
-                <pre>{currentStep.left}</pre>
-              </article>
+          <div className="code-grid">
+            <button
+              type="button"
+              className="code-area clickable-code-area"
+              onClick={() => handleCodeChoice("left")}
+              aria-label={language === "pt" ? "Escolher código da esquerda" : "Choose left code"}
+            >
+              <SyntaxHighlighter
+                language={gameState.currentWinner.language || "javascript"}
+                style={vscDarkPlus}
+                customStyle={{
+                  margin: 0,
+                  padding: 0,
+                  background: "transparent",
+                  fontSize: "0.92rem",
+                  lineHeight: "1.5",
+                }}
+                codeTagProps={{
+                  style: {
+                    fontFamily: '"Courier New", monospace',
+                  },
+                }}
+              >
+                {gameState.currentWinner.code}
+              </SyntaxHighlighter>
+            </button>
 
-              <article className="code-area">
-                <div className="code-label">CÓDIGO</div>
-                <pre>{currentStep.right}</pre>
-              </article>
-            </div>
+            <button
+              type="button"
+              className="code-area clickable-code-area"
+              onClick={() => handleCodeChoice("right")}
+              aria-label={language === "pt" ? "Escolher código da direita" : "Choose right code"}
+            >
+              <SyntaxHighlighter
+                language={currentStep.challenger.language || "javascript"}
+                style={vscDarkPlus}
+                customStyle={{
+                  margin: 0,
+                  padding: 0,
+                  background: "transparent",
+                  fontSize: "0.92rem",
+                  lineHeight: "1.5",
+                }}
+                codeTagProps={{
+                  style: {
+                    fontFamily: '"Courier New", monospace',
+                  },
+                }}
+              >
+                {currentStep.challenger.code}
+              </SyntaxHighlighter>
+            </button>
+          </div>
 
-            <div className="vote-grid">
-              <button className="vote-button" onClick={() => goNext("left")}>
-                {text.vote}
-              </button>
+          <div className="game-bottom-area">
+            <p className="game-progress">
+              {`Par ${currentStep.comparisonNumber} de ${totalCodeComparisons}`}
+            </p>
 
-              <button className="vote-button" onClick={() => goNext("right")}>
-                {text.vote}
-              </button>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${progress}%` }} />
             </div>
 
             <SmallNavButton
               className="skip-game-button"
-              onClick={() => goNext("skipped")}
+              onClick={handleSkip}
             >
               {text.skip}
             </SmallNavButton>
-          </>
-        ) : (
+          </div>
+        </>
+      ) : (
           <>
             <h2 className="game-question">
               {currentStep.question[language]}
@@ -270,13 +357,20 @@ export default function GamePage({ language, setLanguage }) {
                   <button
                     key={option}
                     className="option-button"
-                    onClick={() => goNext(option)}
+                    onClick={() => handleProfileAnswer(option)}
                   >
                     {option}
                   </button>
                 ))}
               </div>
             </article>
+
+            <SmallNavButton
+              className="skip-game-button"
+              onClick={handleSkip}
+            >
+              {text.skip}
+            </SmallNavButton>
           </>
         )}
 

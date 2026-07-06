@@ -3,8 +3,8 @@ const translations = {
     common: { about: "SOBRE", back: "VOLTAR" },
     landing: {
       title: "This or That",
-      description1: "Escolhe entre dois snippets de código equivalentes.",
-      description2: "As tuas escolhas vão contribuir para um estudo sobre preferências em linguagens de programação.",
+      slogan: "Qual é a tua linguagem de sonho?",
+      description: "Escolhe entre dois snippets de código equivalentes e descobre que linguagens combinam mais contigo.",
       startButton: "COMEÇAR",
     },
     about: {
@@ -34,17 +34,24 @@ const translations = {
     game: {
       title: "This or That",
       progress: "Par 1 de 10",
-      question: "Qual o código que preferes?",
+      questions: [
+        "Qual te parece mais limpo?",
+        "Qual preferes ler?",
+        "Qual escreverias no teu próprio código?",
+        "Qual destas opções te parece mais natural?",
+        "Com qual destas versões ficavas?"
+      ],
       codeLabel: "CÓDIGO",
       vote: "VOTAR 👍",
       skip: "PULAR",
-      note: "A tua escolha é anónima e ajuda o estudo.",
+      note: "Sem respostas certas. Só escolhas de estilo.",
     },
     conclusion: {
-      title: "CONCLUÍDO!",
-      subtitle: "Obrigado pela tua participação!",
+      title: "A tua linguagem de sonho é...",
+      subtitle: "Com base nas tuas escolhas, este é o resultado final.",
       result1: "As tuas respostas foram registadas de forma anónima.",
       result2: "Obrigado por contribuíres para este estudo sobre preferências em linguagens de programação.",
+      finalCodeTitle: "O teu código de sonho:",
       share: "PARTILHAR",
       copied: "Link copiado!",
     },
@@ -53,8 +60,8 @@ const translations = {
     common: { about: "ABOUT", back: "BACK" },
     landing: {
       title: "This or That",
-      description1: "Choose between two equivalent code snippets.",
-      description2: "Your choices will contribute to a study about preferences in programming languages.",
+      slogan: "What is your dream language?",
+      description: "Choose between two equivalent code snippets and discover which languages fit your style.",
       startButton: "START",
     },
     about: {
@@ -84,17 +91,24 @@ const translations = {
     game: {
       title: "This or That",
       progress: "Pair 1 of 10",
-      question: "Which code do you prefer?",
+      questions: [
+        "Which one looks cleaner?",
+        "Which one would you rather read?",
+        "Which one would you write yourself?",
+        "Which option feels more natural?",
+        "Which version would you keep?"
+      ],
       codeLabel: "CODE",
       vote: "VOTE 👍",
       skip: "SKIP",
-      note: "Your choice is anonymous and helps the study.",
+      note: "No right answers. Just style choices.",
     },
     conclusion: {
-      title: "COMPLETED!",
-      subtitle: "Thank you for your participation!",
+      title: "Your dream language is...",
+      subtitle: "Based on your choices, this is your final result.",
       result1: "Your answers were recorded anonymously.",
       result2: "Thank you for contributing to this study about preferences in programming languages.",
+      finalCodeTitle: "Your dream code:",
       share: "SHARE",
       copied: "Link copied!",
     },
