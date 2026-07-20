@@ -6,12 +6,13 @@ import AboutPage from "./pages/AboutPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import GamePage from "./pages/GamePage.jsx";
 import ConclusionPage from "./pages/ConclusionPage.jsx";
+const routerBasename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL;
 
 export default function App() {
   const [language, setLanguage] = useState("pt");
 
   return (
-    <BrowserRouter basename="/~pg55999">
+    <BrowserRouter basename={routerBasename}>
       <Routes>
         <Route path="/" element={<LandingPage language={language} setLanguage={setLanguage} />} />
         <Route path="/about" element={<AboutPage language={language} setLanguage={setLanguage} />} />
