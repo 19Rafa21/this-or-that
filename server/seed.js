@@ -1,453 +1,288 @@
 import "dotenv/config";
 import pg from "pg";
+import { createSchema, dropProjectTables } from "./schema.js";
+import {
+  CATEGORY_ORDER,
+  comparisons,
+  DATASET,
+  profileQuestions,
+  snippets,
+} from "./seed-data.js";
 
 const { Pool } = pg;
+const RESET_CONFIRMATION = "RESET_THIS_OR_THAT";
+const resetRequested = process.argv.includes("--reset");
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is required.");
+}
+
+if (
+  resetRequested &&
+  process.env.CONFIRM_DATABASE_RESET !== RESET_CONFIRMATION
+) {
+  throw new Error(
+    `Reset refused. Set CONFIRM_DATABASE_RESET=${RESET_CONFIRMATION} and run the command again.`
+  );
+}
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl:
+    process.env.DATABASE_SSL === "false"
+      ? false
+      : { rejectUnauthorized: false },
 });
 
-const snippets = [
-  // 1. VARIABLES
-  {
-    id: "variables-python-001",
-    category: "variables",
-    language: "python",
-    label: "Python",
-    code: "total = 0",
-    intention: "Declarar e inicializar uma variável numérica.",
-  },
-  {
-    id: "variables-javascript-001",
-    category: "variables",
-    language: "javascript",
-    label: "JavaScript",
-    code: "let total = 0;",
-    intention: "Declarar e inicializar uma variável numérica.",
-  },
-  {
-    id: "variables-c-001",
-    category: "variables",
-    language: "c",
-    label: "C",
-    code: "int total = 0;",
-    intention: "Declarar e inicializar uma variável numérica.",
-  },
+function validateSeedData() {
+  const expectedSnippetCount = CATEGORY_ORDER.length * 4;
+  const expectedComparisonCount = CATEGORY_ORDER.length * 6;
+  const snippetIds = new Set(snippets.map((snippet) => snippet.id));
+  const comparisonIds = new Set(comparisons.map((comparison) => comparison.id));
+  const questionIds = new Set(profileQuestions.map((question) => question.id));
 
-  // 2. CONSTANTS
-  {
-    id: "constants-python-001",
-    category: "constants",
-    language: "python",
-    label: "Python",
-    code: "MAX_ATTEMPTS = 3",
-    intention: "Declarar um valor constante.",
-  },
-  {
-    id: "constants-javascript-001",
-    category: "constants",
-    language: "javascript",
-    label: "JavaScript",
-    code: "const MAX_ATTEMPTS = 3;",
-    intention: "Declarar um valor constante.",
-  },
-  {
-    id: "constants-java-001",
-    category: "constants",
-    language: "java",
-    label: "Java",
-    code: "final int MAX_ATTEMPTS = 3;",
-    intention: "Declarar um valor constante.",
-  },
+  if (snippets.length !== expectedSnippetCount) {
+    throw new Error(
+      `Expected ${expectedSnippetCount} snippets, received ${snippets.length}.`
+    );
+  }
 
-  // 3. ARRAYS / LISTS
-  {
-    id: "arrays-python-001",
-    category: "arrays",
-    language: "python",
-    label: "Python",
-    code: "numbers = [1, 2, 3, 4, 5]",
-    intention: "Criar uma lista de números.",
-  },
-  {
-    id: "arrays-javascript-001",
-    category: "arrays",
-    language: "javascript",
-    label: "JavaScript",
-    code: "const numbers = [1, 2, 3, 4, 5];",
-    intention: "Criar uma lista de números.",
-  },
-  {
-    id: "arrays-java-001",
-    category: "arrays",
-    language: "java",
-    label: "Java",
-    code: "int[] numbers = {1, 2, 3, 4, 5};",
-    intention: "Criar uma lista de números.",
-  },
+  if (comparisons.length !== expectedComparisonCount) {
+    throw new Error(
+      `Expected ${expectedComparisonCount} comparisons, received ${comparisons.length}.`
+    );
+  }
 
-  // 4. CONDITIONALS
-  {
-    id: "conditionals-python-001",
-    category: "conditionals",
-    language: "python",
-    label: "Python",
-    code: "if total > 10:\n    status = \"high\"\nelse:\n    status = \"normal\"",
-    intention: "Tomar uma decisão com base numa condição.",
-  },
-  {
-    id: "conditionals-javascript-001",
-    category: "conditionals",
-    language: "javascript",
-    label: "JavaScript",
-    code: "if (total > 10) {\n  status = \"high\";\n} else {\n  status = \"normal\";\n}",
-    intention: "Tomar uma decisão com base numa condição.",
-  },
-  {
-    id: "conditionals-c-001",
-    category: "conditionals",
-    language: "c",
-    label: "C",
-    code: "if (total > 10) {\n    strcpy(status, \"high\");\n} else {\n    strcpy(status, \"normal\");\n}",
-    intention: "Tomar uma decisão com base numa condição.",
-  },
+  if (snippetIds.size !== snippets.length) {
+    throw new Error("The seed contains duplicate snippet IDs.");
+  }
 
-  // 5. LOOPS
-  {
-    id: "loops-python-001",
-    category: "loops",
-    language: "python",
-    label: "Python",
-    code: "for number in numbers:\n    total += number",
-    intention: "Percorrer uma lista e acumular valores.",
-  },
-  {
-    id: "loops-javascript-001",
-    category: "loops",
-    language: "javascript",
-    label: "JavaScript",
-    code: "for (const number of numbers) {\n  total += number;\n}",
-    intention: "Percorrer uma lista e acumular valores.",
-  },
-  {
-    id: "loops-c-001",
-    category: "loops",
-    language: "c",
-    label: "C",
-    code: "for (int i = 0; i < size; i++) {\n    total += numbers[i];\n}",
-    intention: "Percorrer uma lista e acumular valores.",
-  },
+  if (comparisonIds.size !== comparisons.length) {
+    throw new Error("The seed contains duplicate comparison IDs.");
+  }
 
-  // 6. FUNCTIONS
-  {
-    id: "functions-python-001",
-    category: "functions",
-    language: "python",
-    label: "Python",
-    code: "def calculate_total(numbers):\n    return sum(numbers)",
-    intention: "Definir uma função que calcula um total.",
-  },
-  {
-    id: "functions-javascript-001",
-    category: "functions",
-    language: "javascript",
-    label: "JavaScript",
-    code: "function calculateTotal(numbers) {\n  return numbers.reduce((sum, number) => sum + number, 0);\n}",
-    intention: "Definir uma função que calcula um total.",
-  },
-  {
-    id: "functions-java-001",
-    category: "functions",
-    language: "java",
-    label: "Java",
-    code: "int calculateTotal(int[] numbers) {\n    int total = 0;\n    for (int number : numbers) {\n        total += number;\n    }\n    return total;\n}",
-    intention: "Definir uma função que calcula um total.",
-  },
+  if (questionIds.size !== profileQuestions.length) {
+    throw new Error("The seed contains duplicate profile-question IDs.");
+  }
 
-  // 7. OBJECTS / CLASSES
-  {
-    id: "objects-python-001",
-    category: "objects_classes",
-    language: "python",
-    label: "Python",
-    code: "class User:\n    def __init__(self, name):\n        self.name = name",
-    intention: "Representar uma entidade com uma estrutura própria.",
-  },
-  {
-    id: "objects-javascript-001",
-    category: "objects_classes",
-    language: "javascript",
-    label: "JavaScript",
-    code: "const user = {\n  name: \"Alex\",\n  active: true,\n};",
-    intention: "Representar uma entidade com uma estrutura própria.",
-  },
-  {
-    id: "objects-java-001",
-    category: "objects_classes",
-    language: "java",
-    label: "Java",
-    code: "class User {\n    String name;\n\n    User(String name) {\n        this.name = name;\n    }\n}",
-    intention: "Representar uma entidade com uma estrutura própria.",
-  },
-
-  // 8. INPUT
-  {
-    id: "input-python-001",
-    category: "input",
-    language: "python",
-    label: "Python",
-    code: "name = input(\"Name: \")",
-    intention: "Ler input do utilizador.",
-  },
-  {
-    id: "input-javascript-001",
-    category: "input",
-    language: "javascript",
-    label: "JavaScript",
-    code: "const name = prompt(\"Name:\");",
-    intention: "Ler input do utilizador.",
-  },
-  {
-    id: "input-java-001",
-    category: "input",
-    language: "java",
-    label: "Java",
-    code: "Scanner scanner = new Scanner(System.in);\nString name = scanner.nextLine();",
-    intention: "Ler input do utilizador.",
-  },
-
-  // 9. OUTPUT
-  {
-    id: "output-python-001",
-    category: "output",
-    language: "python",
-    label: "Python",
-    code: "print(f\"Total: {total}\")",
-    intention: "Mostrar informação no ecrã.",
-  },
-  {
-    id: "output-javascript-001",
-    category: "output",
-    language: "javascript",
-    label: "JavaScript",
-    code: "console.log(`Total: ${total}`);",
-    intention: "Mostrar informação no ecrã.",
-  },
-  {
-    id: "output-c-001",
-    category: "output",
-    language: "c",
-    label: "C",
-    code: "printf(\"Total: %d\\n\", total);",
-    intention: "Mostrar informação no ecrã.",
-  },
-
-  // 10. ERRORS
-  {
-    id: "errors-python-001",
-    category: "errors",
-    language: "python",
-    label: "Python",
-    code: "try:\n    result = total / count\nexcept ZeroDivisionError:\n    result = 0",
-    intention: "Lidar com erros durante a execução.",
-  },
-  {
-    id: "errors-javascript-001",
-    category: "errors",
-    language: "javascript",
-    label: "JavaScript",
-    code: "try {\n  result = total / count;\n} catch (error) {\n  result = 0;\n}",
-    intention: "Lidar com erros durante a execução.",
-  },
-  {
-    id: "errors-java-001",
-    category: "errors",
-    language: "java",
-    label: "Java",
-    code: "try {\n    result = total / count;\n} catch (ArithmeticException error) {\n    result = 0;\n}",
-    intention: "Lidar com erros durante a execução.",
-  },
-];
-
-const profileQuestions = [
-  {
-    id: "years-programming",
-    question_pt: "Há quantos anos programas?",
-    question_en: "How many years have you been programming?",
-    type: "select",
-    options: ["Menos de 1", "1-2", "3-5", "Mais de 5"],
-  },
-  {
-    id: "first-language",
-    question_pt: "Qual foi a primeira linguagem em que programaste?",
-    question_en: "What was your first programming language?",
-    type: "select",
-    options: ["C", "Python", "Java", "JavaScript", "Outra"],
-  },
-  {
-    id: "favorite-language",
-    question_pt: "Qual é a tua linguagem favorita?",
-    question_en: "What is your favourite programming language?",
-    type: "select",
-    options: ["C", "Python", "Java", "JavaScript", "Outra"],
-  },
-  {
-    id: "experience-level",
-    question_pt: "Como classificas o teu nível de programação?",
-    question_en: "How would you describe your programming level?",
-    type: "select",
-    options: ["Iniciante", "Intermédio", "Avançado", "Profissional"],
-  },
-  {
-    id: "teaching-experience",
-    question_pt: "Já deste aulas ou explicações de programação?",
-    question_en: "Have you ever taught programming?",
-    type: "select",
-    options: ["Sim", "Não"],
-  },
-  {
-    id: "preferred-style",
-    question_pt: "Que estilo de código preferes?",
-    question_en: "What coding style do you prefer?",
-    type: "select",
-    options: ["Curto e direto", "Explícito e detalhado", "Moderno", "Tradicional"],
-  },
-];
-
-async function seed() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS snippets (
-      id TEXT PRIMARY KEY,
-      category TEXT NOT NULL,
-      language TEXT NOT NULL,
-      label TEXT NOT NULL,
-      code TEXT NOT NULL,
-      intention TEXT,
-      active BOOLEAN DEFAULT true
+  for (const category of CATEGORY_ORDER) {
+    const categorySnippets = snippets.filter(
+      (snippet) => snippet.category === category
+    );
+    const languages = new Set(
+      categorySnippets.map((snippet) => snippet.language)
     );
 
-    CREATE TABLE IF NOT EXISTS profile_questions (
-      id TEXT PRIMARY KEY,
-      question_pt TEXT NOT NULL,
-      question_en TEXT,
-      type TEXT NOT NULL,
-      options JSONB,
-      active BOOLEAN DEFAULT true
-    );
+    if (categorySnippets.length !== 4 || languages.size !== 4) {
+      throw new Error(
+        `Category ${category} must contain exactly four different languages.`
+      );
+    }
+  }
 
-    CREATE TABLE IF NOT EXISTS game_sessions (
-      id TEXT PRIMARY KEY,
-      created_at TIMESTAMPTZ NOT NULL,
-      finished_at TIMESTAMPTZ,
-      user_agent TEXT
-    );
+  const snippetsById = new Map(snippets.map((snippet) => [snippet.id, snippet]));
 
-    CREATE TABLE IF NOT EXISTS profile_answers (
-      id SERIAL PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      question_id TEXT NOT NULL,
-      answer TEXT,
-      created_at TIMESTAMPTZ NOT NULL
-    );
+  for (const comparison of comparisons) {
+    const snippetA = snippetsById.get(comparison.snippetAId);
+    const snippetB = snippetsById.get(comparison.snippetBId);
 
-    CREATE TABLE IF NOT EXISTS choices (
-      id SERIAL PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      round_number INTEGER,
-      category TEXT,
-      left_snippet_id TEXT,
-      right_snippet_id TEXT,
-      selected_snippet_id TEXT,
-      selected_language TEXT,
-      created_at TIMESTAMPTZ NOT NULL
-    );
+    if (!snippetA || !snippetB) {
+      throw new Error(`Comparison ${comparison.id} references a missing snippet.`);
+    }
 
-    CREATE TABLE IF NOT EXISTS final_results (
-      id SERIAL PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      result_json JSONB NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL
-    );
-  `);
+    if (
+      snippetA.category !== comparison.category ||
+      snippetB.category !== comparison.category
+    ) {
+      throw new Error(`Comparison ${comparison.id} mixes categories.`);
+    }
 
-  await pool.query("UPDATE snippets SET active = false");
-  await pool.query("UPDATE profile_questions SET active = false");
+    if (snippetA.language === snippetB.language) {
+      throw new Error(`Comparison ${comparison.id} uses the same language twice.`);
+    }
+  }
+
+  for (const question of profileQuestions) {
+    const optionValues = question.options.map((item) => item.value);
+
+    if (new Set(optionValues).size !== optionValues.length) {
+      throw new Error(`Question ${question.id} has duplicate option values.`);
+    }
+
+    if (
+      question.options.some(
+        (item) => !item.value || !item.pt || !item.en
+      )
+    ) {
+      throw new Error(`Question ${question.id} has an incomplete option.`);
+    }
+  }
+}
+
+async function insertDataset(client) {
+  await client.query("UPDATE datasets SET active = false WHERE active = true");
+  await client.query(
+    `
+      INSERT INTO datasets (id, version, description, active)
+      VALUES ($1, $2, $3, true)
+      ON CONFLICT (id) DO UPDATE SET
+        version = EXCLUDED.version,
+        description = EXCLUDED.description,
+        active = true
+    `,
+    [DATASET.id, DATASET.version, DATASET.description]
+  );
+}
+
+async function insertSnippets(client) {
+  await client.query(
+    "UPDATE snippets SET active = false WHERE dataset_id = $1",
+    [DATASET.id]
+  );
 
   for (const snippet of snippets) {
-    await pool.query(
+    await client.query(
       `
-      INSERT INTO snippets (
-        id,
-        category,
-        language,
-        label,
-        code,
-        intention,
-        active
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, true)
-      ON CONFLICT (id)
-      DO UPDATE SET
-        category = EXCLUDED.category,
-        language = EXCLUDED.language,
-        label = EXCLUDED.label,
-        code = EXCLUDED.code,
-        intention = EXCLUDED.intention,
-        active = true
+        INSERT INTO snippets (
+          id, dataset_id, category, language, label, code,
+          intention_pt, intention_en, active
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+        ON CONFLICT (id) DO UPDATE SET
+          dataset_id = EXCLUDED.dataset_id,
+          category = EXCLUDED.category,
+          language = EXCLUDED.language,
+          label = EXCLUDED.label,
+          code = EXCLUDED.code,
+          intention_pt = EXCLUDED.intention_pt,
+          intention_en = EXCLUDED.intention_en,
+          active = true
       `,
       [
         snippet.id,
+        snippet.datasetId,
         snippet.category,
         snippet.language,
         snippet.label,
         snippet.code,
-        snippet.intention,
+        snippet.intentionPt,
+        snippet.intentionEn,
       ]
     );
   }
+}
+
+async function insertComparisons(client) {
+  await client.query(
+    "UPDATE comparisons SET active = false WHERE dataset_id = $1",
+    [DATASET.id]
+  );
+
+  for (const comparison of comparisons) {
+    await client.query(
+      `
+        INSERT INTO comparisons (
+          id, dataset_id, category, snippet_a_id, snippet_b_id,
+          validation_notes, active
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, true)
+        ON CONFLICT (id) DO UPDATE SET
+          dataset_id = EXCLUDED.dataset_id,
+          category = EXCLUDED.category,
+          snippet_a_id = EXCLUDED.snippet_a_id,
+          snippet_b_id = EXCLUDED.snippet_b_id,
+          validation_notes = EXCLUDED.validation_notes,
+          active = true
+      `,
+      [
+        comparison.id,
+        comparison.datasetId,
+        comparison.category,
+        comparison.snippetAId,
+        comparison.snippetBId,
+        comparison.validationNotes,
+      ]
+    );
+  }
+}
+
+async function insertProfileQuestions(client) {
+  await client.query(
+    "UPDATE profile_questions SET active = false WHERE dataset_id = $1",
+    [DATASET.id]
+  );
 
   for (const question of profileQuestions) {
-    await pool.query(
+    await client.query(
       `
-      INSERT INTO profile_questions (
-        id,
-        question_pt,
-        question_en,
-        type,
-        options,
-        active
-      )
-      VALUES ($1, $2, $3, $4, $5, true)
-      ON CONFLICT (id)
-      DO UPDATE SET
-        question_pt = EXCLUDED.question_pt,
-        question_en = EXCLUDED.question_en,
-        type = EXCLUDED.type,
-        options = EXCLUDED.options,
-        active = true
+        INSERT INTO profile_questions (
+          id, dataset_id, question_pt, question_en, type, options,
+          display_order, active
+        )
+        VALUES ($1, $2, $3, $4, 'single_choice', $5, $6, true)
+        ON CONFLICT (id) DO UPDATE SET
+          dataset_id = EXCLUDED.dataset_id,
+          question_pt = EXCLUDED.question_pt,
+          question_en = EXCLUDED.question_en,
+          type = EXCLUDED.type,
+          options = EXCLUDED.options,
+          display_order = EXCLUDED.display_order,
+          active = true
       `,
       [
         question.id,
-        question.question_pt,
-        question.question_en,
-        question.type,
+        question.datasetId,
+        question.questionPt,
+        question.questionEn,
         JSON.stringify(question.options),
+        question.displayOrder,
       ]
     );
   }
+}
 
-  console.log("Seed completed.");
-  console.log(`${snippets.length} snippets inserted/updated.`);
-  console.log(`${profileQuestions.length} profile questions inserted/updated.`);
+function describeDatabase() {
+  const databaseUrl = new URL(process.env.DATABASE_URL);
+  return `${databaseUrl.hostname}${databaseUrl.pathname}`;
+}
 
-  await pool.end();
+async function seed() {
+  validateSeedData();
+  const client = await pool.connect();
+
+  try {
+    console.log(`Target database: ${describeDatabase()}`);
+    console.log(`Mode: ${resetRequested ? "FULL RESET" : "SAFE UPSERT"}`);
+
+    await client.query("BEGIN");
+
+    if (resetRequested) {
+      await dropProjectTables(client);
+    }
+
+    await createSchema(client);
+    await insertDataset(client);
+    await insertSnippets(client);
+    await insertComparisons(client);
+    await insertProfileQuestions(client);
+    await client.query("COMMIT");
+
+    console.log("Seed completed successfully.");
+    console.log(`Dataset: ${DATASET.version}`);
+    console.log(`Snippets: ${snippets.length}`);
+    console.log(`Validated comparisons: ${comparisons.length}`);
+    console.log(`Profile questions: ${profileQuestions.length}`);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+    await pool.end();
+  }
 }
 
 seed().catch(async (error) => {
-  console.error(error);
-  await pool.end();
+  console.error("Seed failed:", error);
+  await pool.end().catch(() => {});
   process.exit(1);
 });

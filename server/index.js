@@ -46,60 +46,7 @@ function rowsToCsv(rows, fallbackHeaders = []) {
 }
 
 async function initDatabase() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS snippets (
-      id TEXT PRIMARY KEY,
-      category TEXT NOT NULL,
-      language TEXT NOT NULL,
-      label TEXT NOT NULL,
-      code TEXT NOT NULL,
-      intention TEXT,
-      active BOOLEAN DEFAULT true
-    );
-
-    CREATE TABLE IF NOT EXISTS profile_questions (
-      id TEXT PRIMARY KEY,
-      question_pt TEXT NOT NULL,
-      question_en TEXT,
-      type TEXT NOT NULL,
-      options JSONB,
-      active BOOLEAN DEFAULT true
-    );
-
-    CREATE TABLE IF NOT EXISTS game_sessions (
-      id TEXT PRIMARY KEY,
-      created_at TIMESTAMPTZ NOT NULL,
-      finished_at TIMESTAMPTZ,
-      user_agent TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS profile_answers (
-      id SERIAL PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      question_id TEXT NOT NULL,
-      answer TEXT,
-      created_at TIMESTAMPTZ NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS choices (
-      id SERIAL PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      round_number INTEGER,
-      category TEXT,
-      left_snippet_id TEXT,
-      right_snippet_id TEXT,
-      selected_snippet_id TEXT,
-      selected_language TEXT,
-      created_at TIMESTAMPTZ NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS final_results (
-      id SERIAL PRIMARY KEY,
-      session_id TEXT NOT NULL,
-      result_json JSONB NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL
-    );
-  `);
+  await pool.query("SELECT 1");
 }
 
 app.get("/api/health", async (req, res) => {
@@ -118,6 +65,7 @@ app.get("/api/snippets", async (req, res) => {
       SELECT *
       FROM snippets
       WHERE active = true
+        AND dataset_id = (SELECT id FROM datasets WHERE active = true)
       ORDER BY category ASC, language ASC
     `);
 
@@ -128,13 +76,83 @@ app.get("/api/snippets", async (req, res) => {
   }
 });
 
+app.get("/api/comparisons", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        c.id,
+        c.category,
+        c.dataset_id,
+        jsonb_build_object(
+          'id', a.id,
+          'category', a.category,
+          'language', a.language,
+          'label', a.label,
+          'code', a.code,
+          'intention_pt', a.intention_pt,
+          'intention_en', a.intention_en
+        ) AS snippet_a,
+        jsonb_build_object(
+          'id', b.id,
+          'category', b.category,
+          'language', b.language,
+          'label', b.label,
+          'code', b.code,
+          'intention_pt', b.intention_pt,
+          'intention_en', b.intention_en
+        ) AS snippet_b
+      FROM comparisons c
+      JOIN snippets a ON a.id = c.snippet_a_id
+      JOIN snippets b ON b.id = c.snippet_b_id
+      JOIN datasets d ON d.id = c.dataset_id
+      WHERE c.active = true
+        AND a.active = true
+        AND b.active = true
+        AND d.active = true
+      ORDER BY c.category ASC, c.id ASC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Could not load comparisons" });
+  }
+});
+
 app.get("/api/profile-questions", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT *
+      SELECT
+        id,
+        question_pt,
+        question_en,
+        type,
+        (
+          SELECT jsonb_agg(item->>'pt')
+          FROM jsonb_array_elements(options) item
+        ) AS options,
+        active
       FROM profile_questions
       WHERE active = true
-      ORDER BY id ASC
+        AND dataset_id = (SELECT id FROM datasets WHERE active = true)
+      ORDER BY display_order ASC
+    `);
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Could not load profile questions" });
+  }
+});
+
+app.get("/api/v2/profile-questions", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, question_pt, question_en, type, options, display_order
+      FROM profile_questions
+      WHERE active = true
+        AND dataset_id = (SELECT id FROM datasets WHERE active = true)
+      ORDER BY display_order ASC
     `);
 
     res.json(result.rows);
@@ -146,19 +164,43 @@ app.get("/api/profile-questions", async (req, res) => {
 
 app.post("/api/sessions", async (req, res) => {
   try {
+    const requestedLanguage = req.body?.language;
+    const language = requestedLanguage || "pt";
+
+    if (
+      requestedLanguage !== undefined &&
+      language !== "pt" &&
+      language !== "en"
+    ) {
+      return res.status(400).json({ error: "Invalid interface language" });
+    }
+
     const id = createId();
     const createdAt = new Date().toISOString();
-    const userAgent = req.headers["user-agent"] || "";
+
+    const datasetResult = await pool.query(
+      "SELECT id, version FROM datasets WHERE active = true"
+    );
+
+    if (datasetResult.rowCount !== 1) {
+      return res.status(503).json({ error: "No active dataset is available" });
+    }
+
+    const dataset = datasetResult.rows[0];
 
     await pool.query(
       `
-      INSERT INTO game_sessions (id, created_at, user_agent)
-      VALUES ($1, $2, $3)
+      INSERT INTO game_sessions (id, dataset_id, created_at, interface_language)
+      VALUES ($1, $2, $3, $4)
       `,
-      [id, createdAt, userAgent]
+      [id, dataset.id, createdAt, language]
     );
 
-    res.status(201).json({ sessionId: id });
+    res.status(201).json({
+      sessionId: id,
+      datasetId: dataset.id,
+      datasetVersion: dataset.version,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Could not create session" });
@@ -169,23 +211,55 @@ app.post("/api/profile-answers", async (req, res) => {
   try {
     const { sessionId, questionId, answer } = req.body;
 
-    if (!sessionId || !questionId) {
+    if (!sessionId || !questionId || !answer) {
       return res.status(400).json({
-        error: "sessionId and questionId are required",
+        error: "sessionId, questionId and answer are required",
       });
+    }
+
+    const validOption = await pool.query(
+      `
+        SELECT
+          CASE
+            WHEN $3 = 'skipped' THEN 'skipped'
+            ELSE (
+              SELECT item->>'value'
+              FROM jsonb_array_elements(pq.options) item
+              WHERE item->>'value' = $3
+                 OR item->>'pt' = $3
+                 OR item->>'en' = $3
+              LIMIT 1
+            )
+          END AS answer_value
+        FROM profile_questions pq
+        JOIN game_sessions gs ON gs.dataset_id = pq.dataset_id
+        WHERE gs.id = $1
+          AND pq.id = $2
+          AND pq.active = true
+      `,
+      [sessionId, questionId, answer]
+    );
+
+    const answerValue = validOption.rows[0]?.answer_value;
+
+    if (!answerValue) {
+      return res.status(400).json({ error: "Invalid profile answer" });
     }
 
     await pool.query(
       `
-      INSERT INTO profile_answers (
-        session_id,
-        question_id,
-        answer,
-        created_at
-      )
-      VALUES ($1, $2, $3, $4)
+        INSERT INTO profile_answers (
+          session_id,
+          question_id,
+          answer_value,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (session_id, question_id) DO UPDATE SET
+          answer_value = EXCLUDED.answer_value,
+          created_at = EXCLUDED.created_at
       `,
-      [sessionId, questionId, answer || "", new Date().toISOString()]
+      [sessionId, questionId, answerValue, new Date().toISOString()]
     );
 
     res.status(201).json({ ok: true });
@@ -199,42 +273,128 @@ app.post("/api/choices", async (req, res) => {
   try {
     const {
       sessionId,
+      comparisonId,
       roundNumber,
       category,
       leftSnippetId,
       rightSnippetId,
       selectedSnippetId,
-      selectedLanguage,
     } = req.body;
 
-    if (!sessionId || !selectedSnippetId) {
+    if (
+      !sessionId ||
+      !Number.isInteger(roundNumber) ||
+      !category ||
+      !leftSnippetId ||
+      !rightSnippetId ||
+      !selectedSnippetId
+    ) {
       return res.status(400).json({
-        error: "sessionId and selectedSnippetId are required",
+        error: "Incomplete choice payload",
       });
+    }
+
+    const comparisonResult = await pool.query(
+      `
+        SELECT
+          c.id,
+          c.category,
+          c.snippet_a_id,
+          c.snippet_b_id,
+          a.language AS language_a,
+          b.language AS language_b
+        FROM comparisons c
+        JOIN snippets a ON a.id = c.snippet_a_id
+        JOIN snippets b ON b.id = c.snippet_b_id
+        JOIN game_sessions gs ON gs.dataset_id = c.dataset_id
+        WHERE gs.id = $2
+          AND c.active = true
+          AND (
+            c.id = $1
+            OR (
+              $1 IS NULL
+              AND c.category = $3
+              AND (
+                (c.snippet_a_id = $4 AND c.snippet_b_id = $5)
+                OR
+                (c.snippet_a_id = $5 AND c.snippet_b_id = $4)
+              )
+            )
+          )
+      `,
+      [comparisonId || null, sessionId, category, leftSnippetId, rightSnippetId]
+    );
+
+    if (comparisonResult.rowCount !== 1) {
+      return res.status(400).json({ error: "Invalid comparison or session" });
+    }
+
+    const comparison = comparisonResult.rows[0];
+    const expectedSnippetIds = new Set([
+      comparison.snippet_a_id,
+      comparison.snippet_b_id,
+    ]);
+
+    if (
+      comparison.category !== category ||
+      !expectedSnippetIds.has(leftSnippetId) ||
+      !expectedSnippetIds.has(rightSnippetId) ||
+      leftSnippetId === rightSnippetId
+    ) {
+      return res.status(400).json({ error: "Choice does not match comparison" });
+    }
+
+    const skipped = selectedSnippetId === "skipped";
+    let storedSnippetId = null;
+    let storedLanguage = null;
+
+    if (!skipped) {
+      if (!expectedSnippetIds.has(selectedSnippetId)) {
+        return res.status(400).json({ error: "Invalid selected snippet" });
+      }
+
+      storedSnippetId = selectedSnippetId;
+      storedLanguage =
+        selectedSnippetId === comparison.snippet_a_id
+          ? comparison.language_a
+          : comparison.language_b;
     }
 
     await pool.query(
       `
-      INSERT INTO choices (
-        session_id,
-        round_number,
-        category,
-        left_snippet_id,
-        right_snippet_id,
-        selected_snippet_id,
-        selected_language,
-        created_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO choices (
+          session_id,
+          comparison_id,
+          round_number,
+          category,
+          left_snippet_id,
+          right_snippet_id,
+          selected_snippet_id,
+          selected_language,
+          skipped,
+          created_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (session_id, round_number) DO UPDATE SET
+          comparison_id = EXCLUDED.comparison_id,
+          category = EXCLUDED.category,
+          left_snippet_id = EXCLUDED.left_snippet_id,
+          right_snippet_id = EXCLUDED.right_snippet_id,
+          selected_snippet_id = EXCLUDED.selected_snippet_id,
+          selected_language = EXCLUDED.selected_language,
+          skipped = EXCLUDED.skipped,
+          created_at = EXCLUDED.created_at
       `,
       [
         sessionId,
+        comparison.id,
         roundNumber || null,
-        category || "",
-        leftSnippetId || "",
-        rightSnippetId || "",
-        selectedSnippetId,
-        selectedLanguage || "",
+        category,
+        leftSnippetId,
+        rightSnippetId,
+        storedSnippetId,
+        storedLanguage,
+        skipped,
         new Date().toISOString(),
       ]
     );
@@ -262,6 +422,9 @@ app.post("/api/final-results", async (req, res) => {
       `
       INSERT INTO final_results (session_id, result_json, created_at)
       VALUES ($1, $2, $3)
+      ON CONFLICT (session_id) DO UPDATE SET
+        result_json = EXCLUDED.result_json,
+        created_at = EXCLUDED.created_at
       `,
       [sessionId, JSON.stringify(result), now]
     );
@@ -287,28 +450,37 @@ app.get("/api/export/choices.csv", async (req, res) => {
     const result = await pool.query(`
       SELECT
         c.session_id,
+        d.version AS dataset_version,
         s.created_at AS session_created_at,
+        s.interface_language,
         c.round_number,
+        c.comparison_id,
         c.category,
         c.left_snippet_id,
         c.right_snippet_id,
         c.selected_snippet_id,
         c.selected_language,
+        c.skipped,
         c.created_at AS choice_created_at
       FROM choices c
       LEFT JOIN game_sessions s ON s.id = c.session_id
+      LEFT JOIN datasets d ON d.id = s.dataset_id
       ORDER BY c.created_at ASC
     `);
 
     const csv = rowsToCsv(result.rows, [
       "session_id",
+      "dataset_version",
       "session_created_at",
+      "interface_language",
       "round_number",
+      "comparison_id",
       "category",
       "left_snippet_id",
       "right_snippet_id",
       "selected_snippet_id",
       "selected_language",
+      "skipped",
       "choice_created_at",
     ]);
 
@@ -326,25 +498,30 @@ app.get("/api/export/profile-answers.csv", async (req, res) => {
     const result = await pool.query(`
       SELECT
         pa.session_id,
+        d.version AS dataset_version,
         s.created_at AS session_created_at,
+        s.interface_language,
         pa.question_id,
         pq.question_pt,
         pq.question_en,
-        pa.answer,
+        pa.answer_value,
         pa.created_at AS answer_created_at
       FROM profile_answers pa
       LEFT JOIN game_sessions s ON s.id = pa.session_id
+      LEFT JOIN datasets d ON d.id = s.dataset_id
       LEFT JOIN profile_questions pq ON pq.id = pa.question_id
       ORDER BY pa.created_at ASC
     `);
 
     const csv = rowsToCsv(result.rows, [
       "session_id",
+      "dataset_version",
       "session_created_at",
+      "interface_language",
       "question_id",
       "question_pt",
       "question_en",
-      "answer",
+      "answer_value",
       "answer_created_at",
     ]);
 
@@ -362,18 +539,23 @@ app.get("/api/export/final-results.csv", async (req, res) => {
     const result = await pool.query(`
       SELECT
         fr.session_id,
+        d.version AS dataset_version,
         s.created_at AS session_created_at,
+        s.interface_language,
         s.finished_at AS session_finished_at,
         fr.result_json,
         fr.created_at AS result_created_at
       FROM final_results fr
       LEFT JOIN game_sessions s ON s.id = fr.session_id
+      LEFT JOIN datasets d ON d.id = s.dataset_id
       ORDER BY fr.created_at ASC
     `);
 
     const csv = rowsToCsv(result.rows, [
       "session_id",
+      "dataset_version",
       "session_created_at",
+      "interface_language",
       "session_finished_at",
       "result_json",
       "result_created_at",

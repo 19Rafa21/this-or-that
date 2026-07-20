@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "seed:reset": "node seed.js --reset",
+    "seed:validate": "node --check seed.js && node --check seed-data.js && node --check schema.js"
   },
   "dependencies": {
     "cors": "2.8.5",
