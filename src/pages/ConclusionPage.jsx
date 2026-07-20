@@ -1,28 +1,35 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import PrimaryButton from "../components/PrimaryButton.jsx";
 import translations from "../i18n/translations.js";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { readStoredWinner } from "../game/gameUtils.js";
 
 export default function ConclusionPage({ language, setLanguage }) {
   const navigate = useNavigate();
   const text = translations[language].conclusion;
+  const [shareStatus, setShareStatus] = useState("");
 
   const finalWinner = useMemo(() => {
-    const savedWinner = sessionStorage.getItem("finalWinner");
-
-    if (!savedWinner) {
-      return null;
-    }
-
-    return JSON.parse(savedWinner);
+    return readStoredWinner(sessionStorage);
   }, []);
 
-  function handleShare() {
-    navigator.clipboard.writeText(window.location.origin);
-    alert(language === "pt" ? "Link copiado!" : "Link copied!");
+  async function handleShare() {
+    const shareUrl = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: text.shareTitle, text: text.shareText, url: shareUrl });
+        setShareStatus(text.shared);
+      } else {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareStatus(text.copied);
+      }
+    } catch (error) {
+      if (error?.name !== "AbortError") setShareStatus(text.shareError);
+    }
   }
 
   function handleRestart() {
@@ -30,6 +37,8 @@ export default function ConclusionPage({ language, setLanguage }) {
     sessionStorage.removeItem("finalAnswers");
     sessionStorage.removeItem("profileAnswers");
     sessionStorage.removeItem("gameState");
+    sessionStorage.removeItem("sessionId");
+    sessionStorage.removeItem("dreamCode");
 
     navigate("/");
   }
@@ -41,12 +50,17 @@ export default function ConclusionPage({ language, setLanguage }) {
       showAbout={false}
       bracesVariant="conclusion"
     >
-      <div className="mini-logo" onClick={() => navigate("/")}>
-        This or That
-      </div>
+      <button
+        type="button"
+        className="mini-logo logo-button"
+        onClick={() => navigate("/")}
+        aria-label={translations[language].common.goHome}
+      >
+        {translations[language].common.brand}
+      </button>
 
       <section className="conclusion-content">
-        <div className="trophy-shape">🏆</div>
+        <div className="trophy-shape" aria-hidden="true">🏆</div>
 
         <h1 className="main-title conclusion-title">{text.title}</h1>
         <h2 className="conclusion-subtitle">{text.subtitle}</h2>
@@ -80,9 +94,7 @@ export default function ConclusionPage({ language, setLanguage }) {
               </SyntaxHighlighter>
             ) : (
               <pre>
-                {language === "pt"
-                  ? "// Ainda não existe um código vencedor."
-                  : "// There is no winning code yet."}
+                {text.noWinnerCode}
               </pre>
             )}
           </div>
@@ -91,8 +103,12 @@ export default function ConclusionPage({ language, setLanguage }) {
         <div className="conclusion-actions">
           <PrimaryButton onClick={handleShare}>{text.share}</PrimaryButton>
 
+          <p className="share-status" role="status" aria-live="polite">
+            {shareStatus}
+          </p>
+
           <button className="restart-button" onClick={handleRestart}>
-            {language === "pt" ? "RECOMEÇAR" : "RESTART"}
+            {text.restart}
           </button>
         </div>
       </section>

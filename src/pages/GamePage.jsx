@@ -5,11 +5,16 @@ import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import Layout from "../components/Layout.jsx";
 import SmallNavButton from "../components/SmallNavButton.jsx";
 import translations from "../i18n/translations.js";
+import {
+  getWinningLanguage,
+  readStoredGame,
+  SKIPPED_VALUE,
+} from "../game/gameUtils.js";
 
 import {
   createSession,
+  getComparisons,
   getProfileQuestions,
-  getSnippets,
   saveChoice,
   saveFinalResult,
   saveProfileAnswer,
@@ -29,79 +34,54 @@ const CATEGORY_ORDER = [
 ];
 
 const CODE_QUESTIONS_PER_GAME = CATEGORY_ORDER.length;
-const PROFILE_QUESTIONS_PER_GAME = 4;
+const PROFILE_QUESTIONS_PER_GAME = 5;
+let pendingGameInitialization = null;
 
 function shuffleArray(array) {
   return [...array].sort(() => Math.random() - 0.5);
 }
 
-function groupSnippetsByCategory(snippets) {
-  return snippets.reduce((acc, snippet) => {
-    if (!acc[snippet.category]) {
-      acc[snippet.category] = [];
-    }
-
-    acc[snippet.category].push(snippet);
+function buildCodeSteps(comparisons) {
+  const comparisonsByCategory = comparisons.reduce((acc, comparison) => {
+    if (!acc[comparison.category]) acc[comparison.category] = [];
+    acc[comparison.category].push(comparison);
     return acc;
   }, {});
-}
 
-function normalizeCode(code) {
-  return String(code || "")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function getUniqueSnippetsByCode(snippets) {
-  const seenCodes = new Set();
-
-  return snippets.filter((snippet) => {
-    const normalizedCode = normalizeCode(snippet.code);
-
-    if (seenCodes.has(normalizedCode)) {
-      return false;
-    }
-
-    seenCodes.add(normalizedCode);
-    return true;
-  });
-}
-
-function buildCodeSteps(snippets) {
-  const groupedSnippets = groupSnippetsByCategory(snippets);
+  const languageExposure = {};
 
   return CATEGORY_ORDER.map((category, index) => {
-    const snippetsInCategory = groupedSnippets[category] || [];
+    const availableComparisons = comparisonsByCategory[category] || [];
+    const comparison = shuffleArray(availableComparisons).sort((a, b) => {
+      const scoreA =
+        (languageExposure[a.snippet_a.language] || 0) +
+        (languageExposure[a.snippet_b.language] || 0);
+      const scoreB =
+        (languageExposure[b.snippet_a.language] || 0) +
+        (languageExposure[b.snippet_b.language] || 0);
+      return scoreA - scoreB;
+    })[0];
 
-    const uniqueSnippets = getUniqueSnippetsByCode(snippetsInCategory);
+    if (!comparison) throw new Error(`missing-comparison-${category}`);
 
-    if (uniqueSnippets.length < 2) {
-      throw new Error(
-        `A categoria "${category}" precisa de pelo menos 2 snippets diferentes.`
-      );
-    }
+    languageExposure[comparison.snippet_a.language] =
+      (languageExposure[comparison.snippet_a.language] || 0) + 1;
+    languageExposure[comparison.snippet_b.language] =
+      (languageExposure[comparison.snippet_b.language] || 0) + 1;
 
-    const shuffled = shuffleArray(uniqueSnippets);
-
-    const leftSnippet = shuffled[0];
-
-    const rightSnippet = shuffled.find(
-      (snippet) =>
-        snippet.id !== leftSnippet.id &&
-        snippet.language !== leftSnippet.language &&
-        normalizeCode(snippet.code) !== normalizeCode(leftSnippet.code)
-    );
-
-    if (!rightSnippet) {
-      throw new Error(
-        `A categoria "${category}" precisa de snippets de pelo menos 2 linguagens diferentes.`
-      );
-    }
+    const reverseSides = Math.random() < 0.5;
+    const leftSnippet = reverseSides
+      ? comparison.snippet_b
+      : comparison.snippet_a;
+    const rightSnippet = reverseSides
+      ? comparison.snippet_a
+      : comparison.snippet_b;
 
     return {
-      id: `comparison-${category}`,
+      id: comparison.id,
       type: "code",
       category,
+      datasetId: comparison.dataset_id,
       leftSnippet,
       rightSnippet,
       comparisonNumber: index + 1,
@@ -112,23 +92,16 @@ function buildCodeSteps(snippets) {
 function insertProfileQuestionsIntoFlow(codeSteps, profileQuestions) {
   const flow = [...codeSteps];
 
-  const selectedProfileQuestions = shuffleArray(profileQuestions).slice(
+  const selectedProfileQuestions = profileQuestions.slice(
     0,
     PROFILE_QUESTIONS_PER_GAME
   );
 
-  const possiblePositions = [];
-
-  for (let i = 1; i < codeSteps.length; i++) {
-    possiblePositions.push(i);
-  }
-
-  const selectedPositions = shuffleArray(possiblePositions)
-    .slice(0, selectedProfileQuestions.length)
-    .sort((a, b) => b - a);
-
   selectedProfileQuestions.forEach((question, index) => {
-    const positionAfterCodeQuestion = selectedPositions[index];
+    const positionAfterCodeQuestion = Math.min(
+      (index + 1) * 2,
+      codeSteps.length - 1
+    );
 
     const insertIndex =
       flow.findIndex(
@@ -146,8 +119,8 @@ function insertProfileQuestionsIntoFlow(codeSteps, profileQuestions) {
   return flow;
 }
 
-function buildFlow(snippets, profileQuestions) {
-  const codeSteps = buildCodeSteps(snippets);
+function buildFlow(comparisons, profileQuestions) {
+  const codeSteps = buildCodeSteps(comparisons);
 
   if (codeSteps.length < CODE_QUESTIONS_PER_GAME) {
     throw new Error(
@@ -172,25 +145,44 @@ export default function GamePage({ language, setLanguage }) {
   const [sessionId, setSessionId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState("");
 
   useEffect(() => {
     async function loadGameData() {
       try {
         setIsLoading(true);
 
-        const [snippetsFromApi, questionsFromApi, session] =
-          await Promise.all([
-            getSnippets(),
+        const storedGame = readStoredGame(sessionStorage);
+        if (storedGame) {
+          setSessionId(storedGame.sessionId);
+          setGameState(storedGame.gameState);
+          return;
+        }
+
+        if (!pendingGameInitialization) {
+          pendingGameInitialization = Promise.all([
+            getComparisons(),
             getProfileQuestions(),
-            createSession(),
+            createSession(language),
           ]);
+        }
+
+        const initialization = pendingGameInitialization;
+        const [comparisonsFromApi, questionsFromApi, session] =
+          await initialization;
+        if (pendingGameInitialization === initialization) {
+          pendingGameInitialization = null;
+        }
 
         const initialState = {
-          flow: buildFlow(snippetsFromApi, questionsFromApi),
+          flow: buildFlow(comparisonsFromApi, questionsFromApi),
           currentIndex: 0,
           answers: [],
           profileAnswers: [],
           dreamCode: [],
+          datasetId: session.datasetId,
+          datasetVersion: session.datasetVersion,
         };
 
         setSessionId(session.sessionId);
@@ -200,21 +192,22 @@ export default function GamePage({ language, setLanguage }) {
         sessionStorage.setItem("gameState", JSON.stringify(initialState));
       } catch (err) {
         console.error(err);
-        setError(err.message || "Não foi possível carregar o jogo.");
+        pendingGameInitialization = null;
+        setError(text.loadError);
       } finally {
         setIsLoading(false);
       }
     }
 
     loadGameData();
-  }, []);
+  }, [language, text.loadError]);
 
   if (isLoading) {
     return (
       <Layout language={language} setLanguage={setLanguage} bracesVariant="game">
         <section className="game-content">
-          <h1 className="main-title game-title">This or That</h1>
-          <p className="bottom-note game-note">{text.loading || "A carregar jogo..."}</p>
+          <h1 className="main-title game-title">{translations[language].common.brand}</h1>
+          <p className="bottom-note game-note">{text.loading}</p>
         </section>
       </Layout>
     );
@@ -224,9 +217,9 @@ export default function GamePage({ language, setLanguage }) {
     return (
       <Layout language={language} setLanguage={setLanguage} bracesVariant="game">
         <section className="game-content">
-          <h1 className="main-title game-title">This or That</h1>
+          <h1 className="main-title game-title">{translations[language].common.brand}</h1>
           <p className="bottom-note game-note">
-            {error || text.error || "Erro ao iniciar o jogo."}
+            {error || text.loadError}
           </p>
         </section>
       </Layout>
@@ -238,9 +231,7 @@ export default function GamePage({ language, setLanguage }) {
   const progress =
     ((gameState.currentIndex + 1) / gameState.flow.length) * 100;
 
-  const questionList = text.questions || [
-    text.question || "Qual destas opções preferes?",
-  ];
+  const questionList = text.questions;
 
   const dynamicQuestion =
     currentStep.type === "code"
@@ -260,18 +251,12 @@ export default function GamePage({ language, setLanguage }) {
   }
 
   async function finishGame(finalState) {
-    const languageCounts = finalState.answers.reduce((acc, answer) => {
-      const selectedLanguage = answer.selectedLanguage || "unknown";
-      acc[selectedLanguage] = (acc[selectedLanguage] || 0) + 1;
-      return acc;
-    }, {});
-
-    const topLanguage =
-      Object.entries(languageCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-      "unknown";
+    const { winner: topLanguage, counts: languageCounts } = getWinningLanguage(
+      finalState.answers
+    );
 
     const finalWinner = {
-      language: topLanguage,
+      language: topLanguage || "text",
       code: finalState.dreamCode.map((snippet) => snippet.code).join("\n\n"),
       snippets: finalState.dreamCode,
     };
@@ -282,6 +267,8 @@ export default function GamePage({ language, setLanguage }) {
       answers: finalState.answers,
       profileAnswers: finalState.profileAnswers,
       dreamCode: finalState.dreamCode,
+      datasetId: finalState.datasetId,
+      datasetVersion: finalState.datasetVersion,
     };
 
     try {
@@ -291,6 +278,7 @@ export default function GamePage({ language, setLanguage }) {
       });
     } catch (err) {
       console.error("Erro ao guardar resultado final:", err);
+      throw err;
     }
 
     sessionStorage.setItem("finalWinner", JSON.stringify(finalWinner));
@@ -306,9 +294,14 @@ export default function GamePage({ language, setLanguage }) {
     navigate("/conclusion");
   }
 
-  function goToNextStep(newState) {
+  async function goToNextStep(newState) {
     if (newState.currentIndex === newState.flow.length - 1) {
-      finishGame(newState);
+      const stateAwaitingFinalSave = {
+        ...newState,
+        isAwaitingFinalSave: true,
+      };
+      updateGameState(stateAwaitingFinalSave);
+      await finishGame(stateAwaitingFinalSave);
       return;
     }
 
@@ -318,7 +311,26 @@ export default function GamePage({ language, setLanguage }) {
     });
   }
 
+  async function retryFinalSave() {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmissionError("");
+
+    try {
+      await finishGame(gameState);
+    } catch (err) {
+      console.error("Erro ao repetir a gravação do resultado final:", err);
+      setSubmissionError(text.finalSaveError);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   async function handleCodeChoice(choice) {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmissionError("");
+
     const selectedSnippet =
       choice === "left" ? currentStep.leftSnippet : currentStep.rightSnippet;
 
@@ -340,29 +352,44 @@ export default function GamePage({ language, setLanguage }) {
       dreamCode: [...gameState.dreamCode, selectedSnippet],
     };
 
+    let responseSaved = false;
+
     try {
       await saveChoice({
         sessionId,
+        comparisonId: currentStep.id,
         roundNumber: currentStep.comparisonNumber,
         category: currentStep.category,
         leftSnippetId: currentStep.leftSnippet.id,
         rightSnippetId: currentStep.rightSnippet.id,
         selectedSnippetId: selectedSnippet.id,
-        selectedLanguage: selectedSnippet.language,
       });
+      responseSaved = true;
+      await goToNextStep(updatedState);
     } catch (err) {
       console.error("Erro ao guardar escolha:", err);
+      setSubmissionError(responseSaved ? text.finalSaveError : text.saveError);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    goToNextStep(updatedState);
   }
 
-  async function handleProfileAnswer(answer) {
+  async function handleProfileAnswer(option) {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setSubmissionError("");
+
+    const answerValue =
+      typeof option === "string" ? option : option.value;
+    const answerLabel =
+      typeof option === "string" ? option : option[language];
+
     const profileAnswer = {
       questionId: currentStep.id,
       question:
         language === "pt" ? currentStep.question_pt : currentStep.question_en,
-      answer,
+      answer: answerValue,
+      answerLabel,
       timestamp: new Date().toISOString(),
     };
 
@@ -371,29 +398,38 @@ export default function GamePage({ language, setLanguage }) {
       profileAnswers: [...gameState.profileAnswers, profileAnswer],
     };
 
+    let responseSaved = false;
+
     try {
       await saveProfileAnswer({
         sessionId,
         questionId: currentStep.id,
-        answer,
+        answer: answerValue,
       });
+      responseSaved = true;
+      await goToNextStep(updatedState);
     } catch (err) {
       console.error("Erro ao guardar resposta de perfil:", err);
+      setSubmissionError(responseSaved ? text.finalSaveError : text.saveError);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    goToNextStep(updatedState);
   }
 
   async function handleSkip() {
+    if (isSubmitting) return;
+
     if (currentStep.type === "code") {
+      setIsSubmitting(true);
+      setSubmissionError("");
       const answer = {
         comparisonId: currentStep.id,
         category: currentStep.category,
         leftSnippetId: currentStep.leftSnippet.id,
         rightSnippetId: currentStep.rightSnippet.id,
-        selectedSide: "skipped",
-        selectedSnippetId: "skipped",
-        selectedLanguage: "skipped",
+        selectedSide: SKIPPED_VALUE,
+        selectedSnippetId: SKIPPED_VALUE,
+        selectedLanguage: SKIPPED_VALUE,
         selectedCode: "",
         timestamp: new Date().toISOString(),
       };
@@ -403,38 +439,52 @@ export default function GamePage({ language, setLanguage }) {
         answers: [...gameState.answers, answer],
       };
 
+      let responseSaved = false;
+
       try {
         await saveChoice({
           sessionId,
+          comparisonId: currentStep.id,
           roundNumber: currentStep.comparisonNumber,
           category: currentStep.category,
           leftSnippetId: currentStep.leftSnippet.id,
           rightSnippetId: currentStep.rightSnippet.id,
-          selectedSnippetId: "skipped",
-          selectedLanguage: "skipped",
+          selectedSnippetId: SKIPPED_VALUE,
         });
+        responseSaved = true;
+        await goToNextStep(updatedState);
       } catch (err) {
         console.error("Erro ao guardar skip:", err);
+        setSubmissionError(responseSaved ? text.finalSaveError : text.saveError);
+      } finally {
+        setIsSubmitting(false);
       }
-
-      goToNextStep(updatedState);
       return;
     }
 
-    handleProfileAnswer("skipped");
+    await handleProfileAnswer(SKIPPED_VALUE);
   }
 
   return (
     <Layout language={language} setLanguage={setLanguage} bracesVariant="game">
       <section className="game-content">
-        <h1
-          className="main-title game-title clickable-logo"
+        <button
+          type="button"
+          className="main-title game-title clickable-logo logo-button"
           onClick={() => navigate("/")}
+          aria-label={translations[language].common.goHome}
         >
-          This or That
-        </h1>
+          {translations[language].common.brand}
+        </button>
 
-        {currentStep.type === "code" ? (
+        {gameState.isAwaitingFinalSave ? (
+          <section className="final-save-pending" aria-live="polite">
+            <h2 className="game-question">{text.finalSavePending}</h2>
+            <SmallNavButton onClick={retryFinalSave} disabled={isSubmitting}>
+              {isSubmitting ? text.saving : text.retryFinalSave}
+            </SmallNavButton>
+          </section>
+        ) : currentStep.type === "code" ? (
           <>
             <h2 className="game-question">{dynamicQuestion}</h2>
 
@@ -443,11 +493,8 @@ export default function GamePage({ language, setLanguage }) {
                 type="button"
                 className="code-area clickable-code-area"
                 onClick={() => handleCodeChoice("left")}
-                aria-label={
-                  language === "pt"
-                    ? "Escolher código da esquerda"
-                    : "Choose left code"
-                }
+                aria-label={text.chooseLeft}
+                disabled={isSubmitting}
               >
                 <SyntaxHighlighter
                   language={currentStep.leftSnippet.language || "javascript"}
@@ -473,11 +520,8 @@ export default function GamePage({ language, setLanguage }) {
                 type="button"
                 className="code-area clickable-code-area"
                 onClick={() => handleCodeChoice("right")}
-                aria-label={
-                  language === "pt"
-                    ? "Escolher código da direita"
-                    : "Choose right code"
-                }
+                aria-label={text.chooseRight}
+                disabled={isSubmitting}
               >
                 <SyntaxHighlighter
                   language={currentStep.rightSnippet.language || "javascript"}
@@ -502,7 +546,7 @@ export default function GamePage({ language, setLanguage }) {
 
             <div className="game-bottom-area">
               <p className="game-progress">
-                {`Par ${currentCodeQuestionNumber} de ${CODE_QUESTIONS_PER_GAME}`}
+                {text.progress(currentCodeQuestionNumber, CODE_QUESTIONS_PER_GAME)}
               </p>
 
               <div className="progress-bar">
@@ -515,8 +559,9 @@ export default function GamePage({ language, setLanguage }) {
               <SmallNavButton
                 className="skip-game-button"
                 onClick={handleSkip}
+                disabled={isSubmitting}
               >
-                {text.skip}
+                {isSubmitting ? text.saving : text.skip}
               </SmallNavButton>
             </div>
           </>
@@ -528,11 +573,13 @@ export default function GamePage({ language, setLanguage }) {
               <div className="options-grid in-game-options">
                 {currentStep.options.map((option) => (
                   <button
-                    key={option}
+                    type="button"
+                    key={option.value}
                     className="option-button"
                     onClick={() => handleProfileAnswer(option)}
+                    disabled={isSubmitting}
                   >
-                    {option}
+                    {option[language]}
                   </button>
                 ))}
               </div>
@@ -541,12 +588,16 @@ export default function GamePage({ language, setLanguage }) {
             <SmallNavButton
               className="skip-game-button"
               onClick={handleSkip}
+              disabled={isSubmitting}
             >
-              {text.skip}
+              {isSubmitting ? text.saving : text.skip}
             </SmallNavButton>
           </>
         )}
 
+        <p className="submission-error" role="alert" aria-live="assertive">
+          {submissionError}
+        </p>
         <p className="bottom-note game-note">{text.note}</p>
       </section>
     </Layout>

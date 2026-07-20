@@ -27,7 +27,7 @@ button {
   min-height: 100vh;
   width: 100%;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
   background: #3b1d6b;
   color: white;
 }
@@ -833,4 +833,101 @@ button {
 .restart-button:hover {
   background: #5a35a0;
   transform: translateY(-2px);
+}
+
+/* Accessibility and resilient viewport behaviour */
+.app-page {
+  min-height: 100dvh;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 4px;
+}
+
+.logo-button {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.submission-error,
+.share-status {
+  min-height: 1.5em;
+  margin: 12px 0 0;
+  color: #ffffff;
+  font-weight: 800;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-content,
+  .profile-content,
+  .about-content,
+  .game-content,
+  .conclusion-content {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .landing-title,
+  .game-title,
+  .profile-title,
+  .conclusion-title {
+    font-size: clamp(2.25rem, 12vw, 3rem);
+  }
+
+  .landing-slogan,
+  .game-question,
+  .conclusion-subtitle {
+    font-size: clamp(1.35rem, 7vw, 1.8rem);
+  }
+
+  .primary-button {
+    min-width: min(280px, 100%);
+  }
+
+  .profile-card,
+  .code-area,
+  .conclusion-card,
+  .info-card {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .code-area {
+    height: 240px;
+  }
+}
+
+@media (max-height: 600px) and (orientation: landscape) {
+  .landing-content,
+  .game-content,
+  .conclusion-content {
+    padding-top: 70px;
+    padding-bottom: 30px;
+  }
+
+  .game-title,
+  .landing-title {
+    margin-bottom: 22px;
+  }
 }

@@ -21,7 +21,7 @@ export default function ProfilePage({ language, setLanguage }) {
           <h3>{text.languageQuestion}</h3>
           <div className="options-grid language-options">
             {text.languages.map((item) => (
-              <button key={item} className={`option-button ${selectedLanguage === item ? "selected" : ""}`} onClick={() => setSelectedLanguage(item)}>
+              <button type="button" key={item} className={`option-button ${selectedLanguage === item ? "selected" : ""}`} onClick={() => setSelectedLanguage(item)} aria-pressed={selectedLanguage === item}>
                 {item}
               </button>
             ))}
@@ -32,7 +32,7 @@ export default function ProfilePage({ language, setLanguage }) {
           <h3>{text.experienceQuestion}</h3>
           <div className="options-grid experience-options">
             {text.experience.map((item) => (
-              <button key={item} className={`option-button ${selectedExperience === item ? "selected" : ""}`} onClick={() => setSelectedExperience(item)}>
+              <button type="button" key={item} className={`option-button ${selectedExperience === item ? "selected" : ""}`} onClick={() => setSelectedExperience(item)} aria-pressed={selectedExperience === item}>
                 {item}
               </button>
             ))}

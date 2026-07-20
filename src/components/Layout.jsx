@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import LanguageToggle from "./LanguageToggle.jsx";
 import BackgroundBraces from "./BackgroundBraces.jsx";
@@ -13,8 +14,18 @@ export default function Layout({
 }) {
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const commonText = translations[language].common;
+    document.documentElement.lang = language === "pt" ? "pt-PT" : "en";
+    document.title = commonText.documentTitle;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", commonText.documentDescription);
+    localStorage.setItem("language", language);
+  }, [language]);
+
   return (
-    <main className="app-page">
+    <main className="app-page" id="main-content">
       <LanguageToggle language={language} setLanguage={setLanguage} />
 
       {showAbout && (

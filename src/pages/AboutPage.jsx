@@ -15,12 +15,14 @@ export default function AboutPage({ language, setLanguage }) {
       bracesVariant="about"
     >
       <section className="about-content">
-        <h1
-          className="main-title about-title clickable-logo"
+        <button
+          type="button"
+          className="main-title about-title clickable-logo logo-button"
           onClick={() => navigate("/")}
+          aria-label={translations[language].common.goHome}
         >
           {text.title}
-        </h1>
+        </button>
         <article className="info-card">
           <h2>{text.objectiveTitle}</h2>
           <p>{text.objective1}</p>

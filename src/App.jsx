@@ -9,7 +9,10 @@ import ConclusionPage from "./pages/ConclusionPage.jsx";
 const routerBasename = import.meta.env.BASE_URL === "/" ? undefined : import.meta.env.BASE_URL;
 
 export default function App() {
-  const [language, setLanguage] = useState("pt");
+  const [language, setLanguage] = useState(() => {
+    const savedLanguage = localStorage.getItem("language");
+    return savedLanguage === "en" ? "en" : "pt";
+  });
 
   return (
     <BrowserRouter basename={routerBasename}>

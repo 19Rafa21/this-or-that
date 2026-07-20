@@ -1,6 +1,10 @@
-export default function SmallNavButton({ children, onClick, className = "" }) {
+export default function SmallNavButton({ children, className = "", ...props }) {
   return (
-    <button className={`small-nav-button ${className}`} onClick={onClick}>
+    <button
+      type="button"
+      className={`small-nav-button ${className}`.trim()}
+      {...props}
+    >
       {children}
     </button>
   );

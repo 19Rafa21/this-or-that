@@ -1,6 +1,15 @@
 const translations = {
   pt: {
-    common: { about: "SOBRE", back: "VOLTAR" },
+    common: {
+      about: "SOBRE",
+      back: "VOLTAR",
+      brand: "This or That",
+      goHome: "Voltar à página inicial",
+      languageSelector: "Selecionar idioma",
+      languages: { pt: "Português", en: "Inglês" },
+      documentTitle: "This or That — Preferências de código",
+      documentDescription: "Estudo académico sobre preferências em linguagens de programação.",
+    },
     landing: {
       title: "This or That",
       slogan: "Qual é a tua linguagem de sonho?",
@@ -33,7 +42,6 @@ const translations = {
     },
     game: {
       title: "This or That",
-      progress: "Par 1 de 10",
       questions: [
         "Qual te parece mais limpo?",
         "Qual preferes ler?",
@@ -44,6 +52,16 @@ const translations = {
       codeLabel: "CÓDIGO",
       vote: "VOTAR 👍",
       skip: "PULAR",
+      saving: "A GUARDAR…",
+      loading: "A carregar jogo…",
+      loadError: "Não foi possível carregar o jogo. Verifica a ligação e tenta novamente.",
+      saveError: "Não foi possível guardar a resposta. A pergunta não avançou; tenta novamente.",
+      finalSavePending: "A resposta foi guardada, mas falta confirmar o resultado final.",
+      finalSaveError: "A resposta foi guardada, mas não foi possível confirmar o resultado final. Tenta novamente.",
+      retryFinalSave: "TENTAR NOVAMENTE",
+      chooseLeft: "Escolher código da esquerda",
+      chooseRight: "Escolher código da direita",
+      progress: (current, total) => `Par ${current} de ${total}`,
       note: "Sem respostas certas. Só escolhas de estilo.",
     },
     conclusion: {
@@ -54,10 +72,25 @@ const translations = {
       finalCodeTitle: "O teu código de sonho:",
       share: "PARTILHAR",
       copied: "Link copiado!",
+      shared: "Partilha concluída.",
+      shareError: "Não foi possível partilhar o link.",
+      shareTitle: "This or That",
+      shareText: "Descobre a tua linguagem de programação de sonho.",
+      restart: "RECOMEÇAR",
+      noWinnerCode: "// Ainda não existe um código vencedor.",
     },
   },
   en: {
-    common: { about: "ABOUT", back: "BACK" },
+    common: {
+      about: "ABOUT",
+      back: "BACK",
+      brand: "This or That",
+      goHome: "Go to the home page",
+      languageSelector: "Select language",
+      languages: { pt: "Portuguese", en: "English" },
+      documentTitle: "This or That — Code preferences",
+      documentDescription: "Academic study about programming-language preferences.",
+    },
     landing: {
       title: "This or That",
       slogan: "What is your dream language?",
@@ -90,7 +123,6 @@ const translations = {
     },
     game: {
       title: "This or That",
-      progress: "Pair 1 of 10",
       questions: [
         "Which one looks cleaner?",
         "Which one would you rather read?",
@@ -101,6 +133,16 @@ const translations = {
       codeLabel: "CODE",
       vote: "VOTE 👍",
       skip: "SKIP",
+      saving: "SAVING…",
+      loading: "Loading game…",
+      loadError: "The game could not be loaded. Check your connection and try again.",
+      saveError: "The answer could not be saved. The question did not advance; please try again.",
+      finalSavePending: "The answer was saved, but the final result still needs confirmation.",
+      finalSaveError: "The answer was saved, but the final result could not be confirmed. Please try again.",
+      retryFinalSave: "TRY AGAIN",
+      chooseLeft: "Choose the code on the left",
+      chooseRight: "Choose the code on the right",
+      progress: (current, total) => `Pair ${current} of ${total}`,
       note: "No right answers. Just style choices.",
     },
     conclusion: {
@@ -111,6 +153,12 @@ const translations = {
       finalCodeTitle: "Your dream code:",
       share: "SHARE",
       copied: "Link copied!",
+      shared: "Shared successfully.",
+      shareError: "The link could not be shared.",
+      shareTitle: "This or That",
+      shareText: "Discover your dream programming language.",
+      restart: "RESTART",
+      noWinnerCode: "// There is no winning code yet.",
     },
   },
 };

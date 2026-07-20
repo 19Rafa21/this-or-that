@@ -1,6 +1,10 @@
-export default function PrimaryButton({ children, onClick }) {
+export default function PrimaryButton({ children, className = "", ...props }) {
   return (
-    <button className="primary-button" onClick={onClick}>
+    <button
+      type="button"
+      className={`primary-button ${className}`.trim()}
+      {...props}
+    >
       {children}
     </button>
   );
