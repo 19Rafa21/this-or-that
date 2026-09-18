@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "export": "node export-data.js",
+    "export:xlsx": "node export-data.js --xlsx",
     "backup": "node export-data.js --backup",
     "test:integration": "node integration-check.js",
     "seed": "node seed.js",

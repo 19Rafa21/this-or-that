@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { DATASET } from "./seed-data.js";
 import { InputError, replayTournament, buildFinalResult } from "./tournament.js";
 import { authorizeExport, exportQueries, rowsToCsv } from "./exports.js";
+import { exportXlsx } from "./export-xlsx.js";
 
 async function loadDataset(client, datasetId) {
   const comparisons = await client.query(`SELECT c.id, c.category, c.dataset_id,
@@ -122,6 +123,11 @@ export function createApp(pool) {
   }));
 
   app.use("/api/export", authorizeExport);
+  app.get("/api/export/results.xlsx", route(async (_req, res) => {
+    const buffer = await exportXlsx(pool);
+    res.type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+      .attachment("this-or-that.xlsx").send(Buffer.from(buffer));
+  }));
   for (const [name, query] of Object.entries(exportQueries)) {
     app.get(`/api/export/${name}.csv`, route(async (_req, res) => {
       const result = await pool.query(query);

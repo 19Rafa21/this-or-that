@@ -1,0 +1,7 @@
+# React routes are served by the same entry point as the home page.
+RewriteEngine On
+RewriteBase /~pg55999/
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(?:game|about|conclusion)/?$ index.html [L]
