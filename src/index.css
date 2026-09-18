@@ -499,7 +499,7 @@ button {
 }
 
 .game-question {
-  margin: 0 0 44px;
+  margin: 0 0 24px;
   font-size: 2.25rem;
   font-weight: 900;
   text-align: center;
@@ -931,3 +931,27 @@ a:focus-visible {
     margin-bottom: 22px;
   }
 }
+/* Use the same presentation for every experimental syntax. */
+.comparison-code {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-family: "Courier New", monospace;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  text-align: left;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.game-context,
+.game-skip-note {
+  max-width: 960px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-align: center;
+  opacity: 0.9;
+}
+
+.game-context { margin: 0 0 20px; }
+.game-skip-note { margin: 16px 0 0; }

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "node server/dev-local.js",
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --test src/**/*.test.js server/*.test.js",

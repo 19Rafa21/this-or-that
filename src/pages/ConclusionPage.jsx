@@ -3,8 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import PrimaryButton from "../components/PrimaryButton.jsx";
 import translations from "../i18n/translations.js";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { readStoredWinner } from "../game/gameUtils.js";
 
 export default function ConclusionPage({ language, setLanguage }) {
@@ -67,6 +65,8 @@ export default function ConclusionPage({ language, setLanguage }) {
 
         <article className="conclusion-card conclusion-card-large">
           <p>{text.result1}</p>
+          <p>{text.experimentalNote}</p>
+          {finalWinner?.hasSkippedComparisons && <p role="status">{text.skippedNote}</p>}
 
           <h3 className="final-code-title">
             {text.finalCodeTitle}
@@ -74,24 +74,7 @@ export default function ConclusionPage({ language, setLanguage }) {
 
           <div className="final-code-block">
             {finalWinner ? (
-              <SyntaxHighlighter
-                language={finalWinner.language || "javascript"}
-                style={vscDarkPlus}
-                customStyle={{
-                  margin: 0,
-                  padding: 0,
-                  background: "transparent",
-                  fontSize: "0.86rem",
-                  lineHeight: "1.45",
-                }}
-                codeTagProps={{
-                  style: {
-                    fontFamily: '"Courier New", monospace',
-                  },
-                }}
-              >
-                {finalWinner.code}
-              </SyntaxHighlighter>
+              <pre className="comparison-code"><code>{finalWinner.code}</code></pre>
             ) : (
               <pre>
                 {text.noWinnerCode}

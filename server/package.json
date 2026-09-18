@@ -5,6 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "export": "node export-data.js",
+    "backup": "node export-data.js --backup",
+    "test:integration": "node integration-check.js",
     "seed": "node seed.js",
     "seed:reset": "node seed.js --reset",
     "seed:validate": "node --check seed.js && node --check seed-data.js && node --check schema.js"
@@ -12,6 +15,7 @@
   "dependencies": {
     "cors": "2.8.5",
     "dotenv": "16.4.5",
+    "exceljs": "4.4.0",
     "express": "4.18.2",
     "pg": "8.11.5"
   },

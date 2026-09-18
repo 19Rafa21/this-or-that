@@ -12,11 +12,16 @@ export async function createSchema(client) {
       ON datasets (active)
       WHERE active = true;
 
+    ALTER TABLE datasets ADD COLUMN IF NOT EXISTS seed_hash TEXT;
+
     CREATE TABLE IF NOT EXISTS snippets (
       id TEXT PRIMARY KEY,
       dataset_id TEXT NOT NULL REFERENCES datasets(id) ON DELETE CASCADE,
       category TEXT NOT NULL,
       language TEXT NOT NULL,
+      style TEXT NOT NULL,
+      source_language TEXT NOT NULL,
+      inherited_styles JSONB NOT NULL DEFAULT '{}'::jsonb,
       label TEXT NOT NULL,
       code TEXT NOT NULL,
       intention_pt TEXT NOT NULL,
@@ -25,8 +30,16 @@ export async function createSchema(client) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (dataset_id, category, language),
       CHECK (length(trim(code)) > 0),
-      CHECK (length(trim(language)) > 0)
+      CHECK (length(trim(language)) > 0),
+      CHECK (length(trim(style)) > 0),
+      CHECK (length(trim(source_language)) > 0),
+      CHECK (jsonb_typeof(inherited_styles) = 'object')
     );
+
+    ALTER TABLE snippets
+      ADD COLUMN IF NOT EXISTS style TEXT,
+      ADD COLUMN IF NOT EXISTS source_language TEXT,
+      ADD COLUMN IF NOT EXISTS inherited_styles JSONB NOT NULL DEFAULT '{}'::jsonb;
 
     CREATE INDEX IF NOT EXISTS snippets_dataset_category_idx
       ON snippets (dataset_id, category)
@@ -102,6 +115,7 @@ export async function createSchema(client) {
       right_snippet_id TEXT NOT NULL REFERENCES snippets(id),
       selected_snippet_id TEXT REFERENCES snippets(id),
       selected_language TEXT,
+      selected_style TEXT,
       skipped BOOLEAN NOT NULL DEFAULT false,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (session_id, round_number),
@@ -118,6 +132,9 @@ export async function createSchema(client) {
         OR selected_snippet_id = right_snippet_id
       )
     );
+
+    ALTER TABLE choices
+      ADD COLUMN IF NOT EXISTS selected_style TEXT;
 
     CREATE INDEX IF NOT EXISTS choices_comparison_selected_idx
       ON choices (comparison_id, selected_snippet_id);

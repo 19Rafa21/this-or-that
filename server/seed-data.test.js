@@ -7,27 +7,27 @@ import {
   snippets,
 } from "./seed-data.js";
 
-test("cada categoria tem quatro linguagens distintas", () => {
-  for (const category of CATEGORY_ORDER) {
-    const categorySnippets = snippets.filter(
-      (snippet) => snippet.category === category
-    );
-    assert.equal(categorySnippets.length, 4);
-    assert.equal(
-      new Set(categorySnippets.map((snippet) => snippet.language)).size,
-      4
-    );
-  }
+test("o protótipo contém declarações e loops cumulativos", () => {
+  assert.deepEqual(CATEGORY_ORDER, ["variables", "loops", "conditionals"]);
+  assert.equal(snippets.filter((item) => item.category === "variables").length, 4);
+  assert.equal(snippets.filter((item) => item.category === "loops").length, 16);
+  assert.equal(
+    snippets.filter((item) => item.category === "conditionals").length,
+    64
+  );
 });
 
-test("cada categoria contém as seis combinações de linguagens", () => {
-  for (const category of CATEGORY_ORDER) {
-    assert.equal(
-      comparisons.filter((comparison) => comparison.category === category)
-        .length,
-      6
-    );
-  }
+test("existe uma comparação de loops para cada declaração", () => {
+  const loopComparisons = comparisons.filter(
+    (comparison) => comparison.category === "loops"
+  );
+
+  assert.equal(loopComparisons.length, 24);
+  assert.equal(
+    comparisons.filter((item) => item.category === "conditionals").length,
+    96
+  );
+  assert.equal(comparisons.length, 126);
 });
 
 test("todas as comparações referenciam snippets existentes e compatíveis", () => {
@@ -40,14 +40,17 @@ test("todas as comparações referenciam snippets existentes e compatíveis", ()
     assert.ok(snippetB);
     assert.equal(snippetA.category, comparison.category);
     assert.equal(snippetB.category, comparison.category);
-    assert.notEqual(snippetA.language, snippetB.language);
+    assert.notEqual(snippetA.style, snippetB.style);
+    assert.ok(snippetA.sourceLanguage);
+    assert.ok(snippetB.sourceLanguage);
+    assert.deepEqual(snippetA.inheritedStyles, snippetB.inheritedStyles);
     assert.equal(snippetA.intentionPt, snippetB.intentionPt);
     assert.equal(snippetA.intentionEn, snippetB.intentionEn);
   }
 });
 
 test("perguntas usam valores canónicos e rótulos bilingues", () => {
-  assert.equal(profileQuestions.length, 5);
+  assert.equal(profileQuestions.length, 7);
 
   for (const question of profileQuestions) {
     const values = question.options.map((item) => item.value);

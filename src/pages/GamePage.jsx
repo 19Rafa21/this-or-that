@@ -1,135 +1,27 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import Layout from "../components/Layout.jsx";
 import SmallNavButton from "../components/SmallNavButton.jsx";
 import translations from "../i18n/translations.js";
 import {
-  getWinningLanguage,
+  buildInitialFlow,
+  GAME_STATE_VERSION,
+  countPlannedCodeQuestions,
   readStoredGame,
+  resolveCumulativeChoice,
   SKIPPED_VALUE,
 } from "../game/gameUtils.js";
 
 import {
   createSession,
-  getComparisons,
-  getProfileQuestions,
   saveChoice,
   saveFinalResult,
   saveProfileAnswer,
 } from "../api.js";
 
-const CATEGORY_ORDER = [
-  "variables",
-  "constants",
-  "arrays",
-  "conditionals",
-  "loops",
-  "functions",
-  "objects_classes",
-  "input",
-  "output",
-  "errors",
-];
+const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
 
-const CODE_QUESTIONS_PER_GAME = CATEGORY_ORDER.length;
-const PROFILE_QUESTIONS_PER_GAME = 5;
 let pendingGameInitialization = null;
-
-function shuffleArray(array) {
-  return [...array].sort(() => Math.random() - 0.5);
-}
-
-function buildCodeSteps(comparisons) {
-  const comparisonsByCategory = comparisons.reduce((acc, comparison) => {
-    if (!acc[comparison.category]) acc[comparison.category] = [];
-    acc[comparison.category].push(comparison);
-    return acc;
-  }, {});
-
-  const languageExposure = {};
-
-  return CATEGORY_ORDER.map((category, index) => {
-    const availableComparisons = comparisonsByCategory[category] || [];
-    const comparison = shuffleArray(availableComparisons).sort((a, b) => {
-      const scoreA =
-        (languageExposure[a.snippet_a.language] || 0) +
-        (languageExposure[a.snippet_b.language] || 0);
-      const scoreB =
-        (languageExposure[b.snippet_a.language] || 0) +
-        (languageExposure[b.snippet_b.language] || 0);
-      return scoreA - scoreB;
-    })[0];
-
-    if (!comparison) throw new Error(`missing-comparison-${category}`);
-
-    languageExposure[comparison.snippet_a.language] =
-      (languageExposure[comparison.snippet_a.language] || 0) + 1;
-    languageExposure[comparison.snippet_b.language] =
-      (languageExposure[comparison.snippet_b.language] || 0) + 1;
-
-    const reverseSides = Math.random() < 0.5;
-    const leftSnippet = reverseSides
-      ? comparison.snippet_b
-      : comparison.snippet_a;
-    const rightSnippet = reverseSides
-      ? comparison.snippet_a
-      : comparison.snippet_b;
-
-    return {
-      id: comparison.id,
-      type: "code",
-      category,
-      datasetId: comparison.dataset_id,
-      leftSnippet,
-      rightSnippet,
-      comparisonNumber: index + 1,
-    };
-  });
-}
-
-function insertProfileQuestionsIntoFlow(codeSteps, profileQuestions) {
-  const flow = [...codeSteps];
-
-  const selectedProfileQuestions = profileQuestions.slice(
-    0,
-    PROFILE_QUESTIONS_PER_GAME
-  );
-
-  selectedProfileQuestions.forEach((question, index) => {
-    const positionAfterCodeQuestion = Math.min(
-      (index + 1) * 2,
-      codeSteps.length - 1
-    );
-
-    const insertIndex =
-      flow.findIndex(
-        (step) =>
-          step.type === "code" &&
-          step.comparisonNumber === positionAfterCodeQuestion
-      ) + 1;
-
-    flow.splice(insertIndex, 0, {
-      ...question,
-      type: "profile",
-    });
-  });
-
-  return flow;
-}
-
-function buildFlow(comparisons, profileQuestions) {
-  const codeSteps = buildCodeSteps(comparisons);
-
-  if (codeSteps.length < CODE_QUESTIONS_PER_GAME) {
-    throw new Error(
-      `A BD só permite criar ${codeSteps.length} perguntas de código. São necessárias ${CODE_QUESTIONS_PER_GAME}.`
-    );
-  }
-
-  return insertProfileQuestionsIntoFlow(codeSteps, profileQuestions);
-}
 
 function countPreviousCodeQuestions(flow, currentIndex) {
   return flow
@@ -161,22 +53,27 @@ export default function GamePage({ language, setLanguage }) {
         }
 
         if (!pendingGameInitialization) {
-          pendingGameInitialization = Promise.all([
-            getComparisons(),
-            getProfileQuestions(),
-            createSession(language),
-          ]);
+          pendingGameInitialization = createSession(language);
         }
 
         const initialization = pendingGameInitialization;
-        const [comparisonsFromApi, questionsFromApi, session] =
-          await initialization;
+        const session = await initialization;
+        const { comparisons: comparisonsFromApi, profileQuestions: questionsFromApi } = session;
         if (pendingGameInitialization === initialization) {
           pendingGameInitialization = null;
         }
 
         const initialState = {
-          flow: buildFlow(comparisonsFromApi, questionsFromApi),
+          stateVersion: GAME_STATE_VERSION,
+          flow: buildInitialFlow(comparisonsFromApi, questionsFromApi, CATEGORY_ORDER),
+          comparisons: comparisonsFromApi,
+          selectedStyles: {},
+          categoryWinners: [],
+          plannedProfileQuestions: questionsFromApi.length,
+          plannedCodeQuestions: countPlannedCodeQuestions(
+            comparisonsFromApi,
+            CATEGORY_ORDER
+          ),
           currentIndex: 0,
           answers: [],
           profileAnswers: [],
@@ -221,6 +118,7 @@ export default function GamePage({ language, setLanguage }) {
           <p className="bottom-note game-note">
             {error || text.loadError}
           </p>
+          <SmallNavButton onClick={() => window.location.reload()}>{text.retryFinalSave}</SmallNavButton>
         </section>
       </Layout>
     );
@@ -229,13 +127,13 @@ export default function GamePage({ language, setLanguage }) {
   const currentStep = gameState.flow[gameState.currentIndex];
 
   const progress =
-    ((gameState.currentIndex + 1) / gameState.flow.length) * 100;
+    ((gameState.currentIndex + 1) / (gameState.plannedCodeQuestions + gameState.plannedProfileQuestions)) * 100;
 
   const questionList = text.questions;
 
   const dynamicQuestion =
     currentStep.type === "code"
-      ? questionList[gameState.currentIndex % questionList.length]
+      ? questionList[0]
       : language === "pt"
       ? currentStep.question_pt
       : currentStep.question_en;
@@ -244,6 +142,7 @@ export default function GamePage({ language, setLanguage }) {
     currentStep.type === "code"
       ? countPreviousCodeQuestions(gameState.flow, gameState.currentIndex)
       : null;
+  const totalCodeQuestions = gameState.plannedCodeQuestions;
 
   function updateGameState(newState) {
     setGameState(newState);
@@ -251,35 +150,8 @@ export default function GamePage({ language, setLanguage }) {
   }
 
   async function finishGame(finalState) {
-    const { winner: topLanguage, counts: languageCounts } = getWinningLanguage(
-      finalState.answers
-    );
-
-    const finalWinner = {
-      language: topLanguage || "text",
-      code: finalState.dreamCode.map((snippet) => snippet.code).join("\n\n"),
-      snippets: finalState.dreamCode,
-    };
-
-    const finalResult = {
-      winner: finalWinner,
-      languageCounts,
-      answers: finalState.answers,
-      profileAnswers: finalState.profileAnswers,
-      dreamCode: finalState.dreamCode,
-      datasetId: finalState.datasetId,
-      datasetVersion: finalState.datasetVersion,
-    };
-
-    try {
-      await saveFinalResult({
-        sessionId,
-        result: finalResult,
-      });
-    } catch (err) {
-      console.error("Erro ao guardar resultado final:", err);
-      throw err;
-    }
+    const { result } = await saveFinalResult({ sessionId });
+    const finalWinner = result.winner;
 
     sessionStorage.setItem("finalWinner", JSON.stringify(finalWinner));
     sessionStorage.setItem("finalAnswers", JSON.stringify(finalState.answers));
@@ -330,31 +202,48 @@ export default function GamePage({ language, setLanguage }) {
     if (isSubmitting) return;
     setIsSubmitting(true);
     setSubmissionError("");
-
-    const selectedSnippet =
-      choice === "left" ? currentStep.leftSnippet : currentStep.rightSnippet;
-
-    const answer = {
-      comparisonId: currentStep.id,
-      category: currentStep.category,
-      leftSnippetId: currentStep.leftSnippet.id,
-      rightSnippetId: currentStep.rightSnippet.id,
-      selectedSide: choice,
-      selectedSnippetId: selectedSnippet.id,
-      selectedLanguage: selectedSnippet.language,
-      selectedCode: selectedSnippet.code,
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedState = {
-      ...gameState,
-      answers: [...gameState.answers, answer],
-      dreamCode: [...gameState.dreamCode, selectedSnippet],
-    };
-
     let responseSaved = false;
 
     try {
+      const skipped = choice === SKIPPED_VALUE;
+      const selectedSnippet =
+        choice === "right" ? currentStep.rightSnippet : currentStep.leftSnippet;
+      const answer = {
+        comparisonId: currentStep.id,
+        category: currentStep.category,
+        leftSnippetId: currentStep.leftSnippet.id,
+        rightSnippetId: currentStep.rightSnippet.id,
+        selectedSide: choice,
+        selectedSnippetId: skipped ? SKIPPED_VALUE : selectedSnippet.id,
+        selectedLanguage: skipped ? SKIPPED_VALUE : selectedSnippet.language,
+        selectedStyle: skipped ? null : selectedSnippet.style,
+        selectedCode: skipped ? "" : selectedSnippet.code,
+        timestamp: new Date().toISOString(),
+      };
+      const resolution = resolveCumulativeChoice({
+        flow: gameState.flow,
+        currentIndex: gameState.currentIndex,
+        selectedSnippet,
+        comparisons: gameState.comparisons,
+        categoryOrder: CATEGORY_ORDER,
+        selectedStyles: gameState.selectedStyles,
+        nextRoundNumber: gameState.answers.length + 2,
+      });
+      const answers = [...gameState.answers, answer];
+      const categoryHasSkips = answers.some(
+        (item) => item.category === currentStep.category && item.selectedSide === SKIPPED_VALUE
+      );
+      const updatedState = {
+        ...gameState,
+        flow: resolution.flow,
+        // This is the composition context; confirmed preferences come from the API.
+        selectedStyles: resolution.selectedStyles,
+        answers,
+        categoryWinners: resolution.categoryFinished && !categoryHasSkips
+          ? [...gameState.categoryWinners, selectedSnippet]
+          : gameState.categoryWinners,
+        dreamCode: resolution.categoryFinished ? [selectedSnippet] : gameState.dreamCode,
+      };
       await saveChoice({
         sessionId,
         comparisonId: currentStep.id,
@@ -362,7 +251,7 @@ export default function GamePage({ language, setLanguage }) {
         category: currentStep.category,
         leftSnippetId: currentStep.leftSnippet.id,
         rightSnippetId: currentStep.rightSnippet.id,
-        selectedSnippetId: selectedSnippet.id,
+        selectedSnippetId: answer.selectedSnippetId,
       });
       responseSaved = true;
       await goToNextStep(updatedState);
@@ -417,52 +306,11 @@ export default function GamePage({ language, setLanguage }) {
   }
 
   async function handleSkip() {
-    if (isSubmitting) return;
-
     if (currentStep.type === "code") {
-      setIsSubmitting(true);
-      setSubmissionError("");
-      const answer = {
-        comparisonId: currentStep.id,
-        category: currentStep.category,
-        leftSnippetId: currentStep.leftSnippet.id,
-        rightSnippetId: currentStep.rightSnippet.id,
-        selectedSide: SKIPPED_VALUE,
-        selectedSnippetId: SKIPPED_VALUE,
-        selectedLanguage: SKIPPED_VALUE,
-        selectedCode: "",
-        timestamp: new Date().toISOString(),
-      };
-
-      const updatedState = {
-        ...gameState,
-        answers: [...gameState.answers, answer],
-      };
-
-      let responseSaved = false;
-
-      try {
-        await saveChoice({
-          sessionId,
-          comparisonId: currentStep.id,
-          roundNumber: currentStep.comparisonNumber,
-          category: currentStep.category,
-          leftSnippetId: currentStep.leftSnippet.id,
-          rightSnippetId: currentStep.rightSnippet.id,
-          selectedSnippetId: SKIPPED_VALUE,
-        });
-        responseSaved = true;
-        await goToNextStep(updatedState);
-      } catch (err) {
-        console.error("Erro ao guardar skip:", err);
-        setSubmissionError(responseSaved ? text.finalSaveError : text.saveError);
-      } finally {
-        setIsSubmitting(false);
-      }
-      return;
+      await handleCodeChoice(SKIPPED_VALUE);
+    } else {
+      await handleProfileAnswer(SKIPPED_VALUE);
     }
-
-    await handleProfileAnswer(SKIPPED_VALUE);
   }
 
   return (
@@ -487,6 +335,9 @@ export default function GamePage({ language, setLanguage }) {
         ) : currentStep.type === "code" ? (
           <>
             <h2 className="game-question">{dynamicQuestion}</h2>
+            <p className="game-context">
+              {currentStep.leftSnippet[`intention_${language}`]} {text.contextNote}
+            </p>
 
             <div className="code-grid">
               <button
@@ -496,24 +347,7 @@ export default function GamePage({ language, setLanguage }) {
                 aria-label={text.chooseLeft}
                 disabled={isSubmitting}
               >
-                <SyntaxHighlighter
-                  language={currentStep.leftSnippet.language || "javascript"}
-                  style={vscDarkPlus}
-                  customStyle={{
-                    margin: 0,
-                    padding: 0,
-                    background: "transparent",
-                    fontSize: "0.92rem",
-                    lineHeight: "1.5",
-                  }}
-                  codeTagProps={{
-                    style: {
-                      fontFamily: '"Courier New", monospace',
-                    },
-                  }}
-                >
-                  {currentStep.leftSnippet.code}
-                </SyntaxHighlighter>
+                <pre className="comparison-code"><code>{currentStep.leftSnippet.code}</code></pre>
               </button>
 
               <button
@@ -523,30 +357,13 @@ export default function GamePage({ language, setLanguage }) {
                 aria-label={text.chooseRight}
                 disabled={isSubmitting}
               >
-                <SyntaxHighlighter
-                  language={currentStep.rightSnippet.language || "javascript"}
-                  style={vscDarkPlus}
-                  customStyle={{
-                    margin: 0,
-                    padding: 0,
-                    background: "transparent",
-                    fontSize: "0.92rem",
-                    lineHeight: "1.5",
-                  }}
-                  codeTagProps={{
-                    style: {
-                      fontFamily: '"Courier New", monospace',
-                    },
-                  }}
-                >
-                  {currentStep.rightSnippet.code}
-                </SyntaxHighlighter>
+                <pre className="comparison-code"><code>{currentStep.rightSnippet.code}</code></pre>
               </button>
             </div>
 
             <div className="game-bottom-area">
               <p className="game-progress">
-                {text.progress(currentCodeQuestionNumber, CODE_QUESTIONS_PER_GAME)}
+                {text.progress(currentCodeQuestionNumber, totalCodeQuestions)}
               </p>
 
               <div className="progress-bar">
@@ -563,6 +380,7 @@ export default function GamePage({ language, setLanguage }) {
               >
                 {isSubmitting ? text.saving : text.skip}
               </SmallNavButton>
+              <p className="game-skip-note">{text.skipNote}</p>
             </div>
           </>
         ) : (

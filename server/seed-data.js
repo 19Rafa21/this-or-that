@@ -1,273 +1,230 @@
 export const DATASET = {
-  id: "dataset-2026-01",
-  version: "2026.1",
+  id: "dataset-2026-05",
+  version: "2026.5",
   description:
-    "Curated cross-language comparisons covering ten programming constructs in Python, JavaScript, Java and C#.",
+    "Cumulative prototype comparing C, Python, Java and Pascal declaration, loop and conditional styles.",
 };
 
-export const CATEGORY_ORDER = [
-  "variables",
-  "constants",
-  "arrays",
-  "conditionals",
-  "loops",
-  "functions",
-  "objects_classes",
-  "input",
-  "output",
-  "errors",
-];
-
-const languageLabels = {
-  python: "Python",
-  javascript: "JavaScript",
-  java: "Java",
-  csharp: "C#",
-};
+export const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
 
 const intentions = {
   variables: {
     pt: "Declarar uma variável inteira mutável com o valor inicial zero.",
     en: "Declare a mutable integer variable with an initial value of zero.",
   },
-  constants: {
-    pt: "Declarar um valor constante com o número máximo de tentativas igual a três.",
-    en: "Declare a constant maximum number of attempts equal to three.",
-  },
-  arrays: {
-    pt: "Criar uma coleção ordenada com os números inteiros um, dois e três.",
-    en: "Create an ordered collection containing the integers one, two and three.",
+  loops: {
+    pt: "Percorrer os valores de zero até n usando um ciclo.",
+    en: "Iterate over the values from zero to n using a loop.",
   },
   conditionals: {
-    pt: "Atribuir o estado aprovado quando a pontuação é pelo menos dez e reprovado nos restantes casos.",
-    en: "Assign a passing status when the score is at least ten and a failing status otherwise.",
-  },
-  loops: {
-    pt: "Somar todos os números da coleção [1, 2, 3] usando um ciclo.",
-    en: "Sum every number in the collection [1, 2, 3] using a loop.",
-  },
-  functions: {
-    pt: "Definir uma função que devolve o quadrado de um número inteiro.",
-    en: "Define a function that returns the square of an integer.",
-  },
-  objects_classes: {
-    pt: "Definir uma classe Person que recebe e guarda um nome na construção.",
-    en: "Define a Person class that receives and stores a name during construction.",
-  },
-  input: {
-    pt: "Ler o primeiro argumento fornecido pelo utilizador na linha de comandos.",
-    en: "Read the first user-supplied command-line argument.",
-  },
-  output: {
-    pt: "Escrever a mensagem Hello, world! na saída padrão.",
-    en: "Write the message Hello, world! to standard output.",
-  },
-  errors: {
-    pt: "Definir uma divisão segura que devolve ausência de valor quando o divisor é zero.",
-    en: "Define safe division that returns no value when the divisor is zero.",
+    pt: "Somar a total os valores pares encontrados durante o ciclo.",
+    en: "Add the even values found during the loop to total.",
   },
 };
 
-function makeSnippet(category, language, code) {
+function makeSnippet({
+  id,
+  category,
+  variant,
+  style,
+  sourceLanguage,
+  label,
+  code,
+  inheritedStyles = {},
+}) {
   return {
-    id: `${category}-${language}-001`,
+    id: `${DATASET.id}:${id}`,
     datasetId: DATASET.id,
     category,
-    language,
-    label: languageLabels[language],
+    language: variant,
+    style,
+    sourceLanguage,
+    inheritedStyles,
+    label,
     code,
     intentionPt: intentions[category].pt,
     intentionEn: intentions[category].en,
   };
 }
 
-export const snippets = [
-  makeSnippet("variables", "python", "score = 0"),
-  makeSnippet("variables", "javascript", "let score = 0;"),
-  makeSnippet("variables", "java", "int score = 0;"),
-  makeSnippet("variables", "csharp", "int score = 0;"),
-
-  makeSnippet("constants", "python", "MAX_ATTEMPTS = 3"),
-  makeSnippet("constants", "javascript", "const MAX_ATTEMPTS = 3;"),
-  makeSnippet("constants", "java", "final int MAX_ATTEMPTS = 3;"),
-  makeSnippet("constants", "csharp", "const int MaxAttempts = 3;"),
-
-  makeSnippet("arrays", "python", "numbers = [1, 2, 3]"),
-  makeSnippet("arrays", "javascript", "const numbers = [1, 2, 3];"),
-  makeSnippet("arrays", "java", "int[] numbers = {1, 2, 3};"),
-  makeSnippet("arrays", "csharp", "int[] numbers = { 1, 2, 3 };"),
-
-  makeSnippet(
-    "conditionals",
-    "python",
-    'score = 12\nstatus = "passed" if score >= 10 else "failed"'
-  ),
-  makeSnippet(
-    "conditionals",
-    "javascript",
-    'const score = 12;\nconst status = score >= 10 ? "passed" : "failed";'
-  ),
-  makeSnippet(
-    "conditionals",
-    "java",
-    'int score = 12;\nString status = score >= 10 ? "passed" : "failed";'
-  ),
-  makeSnippet(
-    "conditionals",
-    "csharp",
-    'int score = 12;\nstring status = score >= 10 ? "passed" : "failed";'
-  ),
-
-  makeSnippet(
-    "loops",
-    "python",
-    "numbers = [1, 2, 3]\ntotal = 0\nfor number in numbers:\n    total += number"
-  ),
-  makeSnippet(
-    "loops",
-    "javascript",
-    "const numbers = [1, 2, 3];\nlet total = 0;\nfor (const number of numbers) {\n  total += number;\n}"
-  ),
-  makeSnippet(
-    "loops",
-    "java",
-    "int[] numbers = {1, 2, 3};\nint total = 0;\nfor (int number : numbers) {\n    total += number;\n}"
-  ),
-  makeSnippet(
-    "loops",
-    "csharp",
-    "int[] numbers = { 1, 2, 3 };\nint total = 0;\nforeach (int number in numbers)\n{\n    total += number;\n}"
-  ),
-
-  makeSnippet(
-    "functions",
-    "python",
-    "def square(number: int) -> int:\n    return number * number"
-  ),
-  makeSnippet(
-    "functions",
-    "javascript",
-    "function square(number) {\n  return number * number;\n}"
-  ),
-  makeSnippet(
-    "functions",
-    "java",
-    "static int square(int number) {\n    return number * number;\n}"
-  ),
-  makeSnippet(
-    "functions",
-    "csharp",
-    "static int Square(int number)\n{\n    return number * number;\n}"
-  ),
-
-  makeSnippet(
-    "objects_classes",
-    "python",
-    "class Person:\n    def __init__(self, name: str):\n        self.name = name"
-  ),
-  makeSnippet(
-    "objects_classes",
-    "javascript",
-    "class Person {\n  constructor(name) {\n    this.name = name;\n  }\n}"
-  ),
-  makeSnippet(
-    "objects_classes",
-    "java",
-    "class Person {\n    String name;\n\n    Person(String name) {\n        this.name = name;\n    }\n}"
-  ),
-  makeSnippet(
-    "objects_classes",
-    "csharp",
-    "class Person\n{\n    public string Name { get; }\n\n    public Person(string name)\n    {\n        Name = name;\n    }\n}"
-  ),
-
-  makeSnippet(
-    "input",
-    "python",
-    "import sys\n\nuser_value = sys.argv[1]"
-  ),
-  makeSnippet(
-    "input",
-    "javascript",
-    "const userValue = process.argv[2];"
-  ),
-  makeSnippet(
-    "input",
-    "java",
-    "String userValue = args[0];"
-  ),
-  makeSnippet(
-    "input",
-    "csharp",
-    "string userValue = args[0];"
-  ),
-
-  makeSnippet("output", "python", 'print("Hello, world!")'),
-  makeSnippet("output", "javascript", 'console.log("Hello, world!");'),
-  makeSnippet("output", "java", 'System.out.println("Hello, world!");'),
-  makeSnippet("output", "csharp", 'Console.WriteLine("Hello, world!");'),
-
-  makeSnippet(
-    "errors",
-    "python",
-    "def safe_divide(a, b):\n    if b == 0:\n        return None\n    return a / b"
-  ),
-  makeSnippet(
-    "errors",
-    "javascript",
-    "function safeDivide(a, b) {\n  if (b === 0) {\n    return null;\n  }\n  return a / b;\n}"
-  ),
-  makeSnippet(
-    "errors",
-    "java",
-    "static Double safeDivide(double a, double b) {\n    if (b == 0) {\n        return null;\n    }\n    return a / b;\n}"
-  ),
-  makeSnippet(
-    "errors",
-    "csharp",
-    "static double? SafeDivide(double a, double b)\n{\n    if (b == 0)\n    {\n        return null;\n    }\n    return a / b;\n}"
-  ),
+const styles = [
+  {
+    id: "c",
+    style: "c_style",
+    label: "C",
+    declaration: "int i = 0;",
+    renderLoop(body = "") {
+      const content = body ? `${indent(body, 2)}\n` : "";
+      return `while (i < n) {\n${content}  i++;\n}`;
+    },
+    conditional: "if (i % 2 == 0) {\n  total += i;\n}",
+  },
+  {
+    id: "python",
+    style: "python_style",
+    label: "Python",
+    declaration: "i = 0",
+    renderLoop(body = "") {
+      const content = body ? `${indent(body, 4)}\n` : "";
+      return `while i < n:\n${content}    i += 1`;
+    },
+    conditional: "if i % 2 == 0:\n    total += i",
+  },
+  {
+    id: "java",
+    style: "java_style",
+    label: "Java",
+    declaration: "var i = 0;",
+    renderLoop(body = "") {
+      const content = body ? `\n${indent(body, 2)}\n` : "\n";
+      return `for (; i < n; i++) {${content}}`;
+    },
+    conditional:
+      "if (Math.floorMod(i, 2) == 0) {\n  total += i;\n}",
+  },
+  {
+    id: "pascal",
+    style: "pascal_style",
+    label: "Pascal",
+    declaration: "i: Integer := 0;",
+    renderLoop(body = "") {
+      const content = body ? `${indent(body, 2)}\n` : "";
+      return `while i < n do\nbegin\n${content}  i := i + 1;\nend;`;
+    },
+    conditional:
+      "if i mod 2 = 0 then\nbegin\n  total := total + i;\nend;",
+  },
 ];
 
-function buildComparisons() {
-  const comparisons = [];
+function indent(code, spaces) {
+  const padding = " ".repeat(spaces);
+  return code
+    .split("\n")
+    .map((line) => `${padding}${line}`)
+    .join("\n");
+}
 
-  for (const category of CATEGORY_ORDER) {
-    const categorySnippets = snippets.filter(
-      (snippet) => snippet.category === category
-    );
+const declarationSnippets = styles.map((item) =>
+  makeSnippet({
+    id: `variables-${item.id}-style`,
+    category: "variables",
+    variant: `${item.id}_declaration`,
+    style: item.style,
+    sourceLanguage: item.id,
+    label: item.label,
+    code: item.declaration,
+  })
+);
 
-    for (let a = 0; a < categorySnippets.length; a += 1) {
-      for (let b = a + 1; b < categorySnippets.length; b += 1) {
-        const snippetA = categorySnippets[a];
-        const snippetB = categorySnippets[b];
-        comparisons.push({
-          id: `${category}-${snippetA.language}-vs-${snippetB.language}`,
-          datasetId: DATASET.id,
+const loopSnippets = styles.flatMap((declarationStyle) =>
+  styles.map((loopStyle) =>
+    makeSnippet({
+      id: `loops-${declarationStyle.id}-declaration-${loopStyle.id}-style`,
+      category: "loops",
+      variant: `${declarationStyle.id}_declaration__${loopStyle.id}_loop`,
+      style: loopStyle.style,
+      sourceLanguage: loopStyle.id,
+      inheritedStyles: { variables: declarationStyle.style },
+      label: loopStyle.label,
+      code: `${declarationStyle.declaration}\n\n${loopStyle.renderLoop()}`,
+    })
+  )
+);
+
+const conditionalSnippets = styles.flatMap((declarationStyle) =>
+  styles.flatMap((loopStyle) =>
+    styles.map((conditionalStyle) =>
+      makeSnippet({
+        id: `conditionals-${declarationStyle.id}-declaration-${loopStyle.id}-loop-${conditionalStyle.id}-style`,
+        category: "conditionals",
+        variant: `${declarationStyle.id}_declaration__${loopStyle.id}_loop__${conditionalStyle.id}_conditional`,
+        style: conditionalStyle.style,
+        sourceLanguage: conditionalStyle.id,
+        inheritedStyles: {
+          variables: declarationStyle.style,
+          loops: loopStyle.style,
+        },
+        label: conditionalStyle.label,
+        code: `${declarationStyle.declaration}\n\n${loopStyle.renderLoop(
+          conditionalStyle.conditional
+        )}`,
+      })
+    )
+  )
+);
+
+export const snippets = [
+  ...declarationSnippets,
+  ...loopSnippets,
+  ...conditionalSnippets,
+];
+
+function comparison(id, category, snippetAId, snippetBId) {
+  return {
+    id: `${DATASET.id}:${id}`,
+    datasetId: DATASET.id,
+    category,
+    snippetAId,
+    snippetBId,
+    validationNotes: "Manually curated experimental syntax comparison.",
+  };
+}
+
+function buildPairComparisons(items, category, context) {
+  const result = [];
+
+  for (let left = 0; left < items.length; left += 1) {
+    for (let right = left + 1; right < items.length; right += 1) {
+      result.push(
+        comparison(
+          `${category}-${context}-${items[left].sourceLanguage}-vs-${items[right].sourceLanguage}`,
           category,
-          snippetAId: snippetA.id,
-          snippetBId: snippetB.id,
-          validationNotes:
-            "Manually curated pair. Both snippets implement the shared intention recorded for this category; runtime and standard-library conventions may differ by language.",
-        });
-      }
+          items[left].id,
+          items[right].id
+        )
+      );
     }
   }
 
-  return comparisons;
+  return result;
 }
 
-export const comparisons = buildComparisons();
+export const comparisons = [
+  ...buildPairComparisons(declarationSnippets, "variables", "declaration"),
+  ...styles.flatMap((declarationStyle) =>
+    buildPairComparisons(
+      loopSnippets.filter(
+        (snippet) =>
+          snippet.inheritedStyles.variables === declarationStyle.style
+      ),
+      "loops",
+      `${declarationStyle.id}-declaration`
+    )
+  ),
+  ...styles.flatMap((declarationStyle) =>
+    styles.flatMap((loopStyle) =>
+      buildPairComparisons(
+        conditionalSnippets.filter(
+          (snippet) =>
+            snippet.inheritedStyles.variables === declarationStyle.style &&
+            snippet.inheritedStyles.loops === loopStyle.style
+        ),
+        "conditionals",
+        `${declarationStyle.id}-declaration-${loopStyle.id}-loop`
+      )
+    )
+  ),
+];
 
 const option = (value, pt, en) => ({ value, pt, en });
 
 export const profileQuestions = [
   {
-    id: "primary-language",
+    id: "2026-04-primary-language",
     datasetId: DATASET.id,
     displayOrder: 1,
-    questionPt: "Qual é a tua principal linguagem de programação?",
-    questionEn: "What is your primary programming language?",
+    questionPt: "Que linguagem de programação usas mais atualmente?",
+    questionEn: "Which programming language do you use most currently?",
     options: [
       option("python", "Python", "Python"),
       option("javascript", "JavaScript", "JavaScript"),
@@ -275,12 +232,14 @@ export const profileQuestions = [
       option("csharp", "C#", "C#"),
       option("c", "C", "C"),
       option("cpp", "C++", "C++"),
+      option("pascal", "Pascal", "Pascal"),
+      option("not_currently", "Não programo atualmente", "I do not currently program"),
       option("other", "Outra", "Other"),
       option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
     ],
   },
   {
-    id: "programming-experience",
+    id: "2026-04-programming-experience",
     datasetId: DATASET.id,
     displayOrder: 2,
     questionPt: "Há quantos anos programas?",
@@ -295,7 +254,7 @@ export const profileQuestions = [
     ],
   },
   {
-    id: "programming-context",
+    id: "2026-04-programming-context",
     datasetId: DATASET.id,
     displayOrder: 3,
     questionPt: "Em que contexto programas atualmente?",
@@ -310,7 +269,7 @@ export const profileQuestions = [
     ],
   },
   {
-    id: "programming-frequency",
+    id: "2026-04-programming-frequency",
     datasetId: DATASET.id,
     displayOrder: 4,
     questionPt: "Com que frequência programas?",
@@ -325,7 +284,7 @@ export const profileQuestions = [
     ],
   },
   {
-    id: "self_assessed_level",
+    id: "2026-04-self-assessed-level",
     datasetId: DATASET.id,
     displayOrder: 5,
     questionPt: "Como avalias o teu nível geral de programação?",
@@ -339,3 +298,32 @@ export const profileQuestions = [
     ],
   },
 ];
+
+profileQuestions.push(
+  {
+    id: "first-language",
+    datasetId: DATASET.id,
+    displayOrder: 6,
+    questionPt: "Qual foi a primeira linguagem de programação que aprendeste?",
+    questionEn: "Which programming language did you learn first?",
+    options: profileQuestions[0].options.filter((item) => item.value !== "not_currently"),
+  },
+  {
+    id: "preference-change",
+    datasetId: DATASET.id,
+    displayOrder: 7,
+    questionPt: "Desde que começaste a programar, as tuas preferências de estilo de código mudaram?",
+    questionEn: "Have your code-style preferences changed since you started programming?",
+    options: [
+      option("unchanged", "Não mudaram", "They have not changed"),
+      option("slightly", "Mudaram um pouco", "They have changed a little"),
+      option("substantially", "Mudaram bastante", "They have changed substantially"),
+      option("unsure", "Não sei avaliar", "I am not sure"),
+      option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
+    ],
+  }
+);
+
+for (const question of profileQuestions) {
+  question.id = `${DATASET.id}:${question.id.replace(/^2026-04-/, "")}`;
+}

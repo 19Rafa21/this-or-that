@@ -1,5 +1,6 @@
 import "dotenv/config";
 import pg from "pg";
+import { createHash } from "node:crypto";
 import { createSchema, dropProjectTables } from "./schema.js";
 import {
   CATEGORY_ORDER,
@@ -35,23 +36,9 @@ const pool = new Pool({
 });
 
 function validateSeedData() {
-  const expectedSnippetCount = CATEGORY_ORDER.length * 4;
-  const expectedComparisonCount = CATEGORY_ORDER.length * 6;
   const snippetIds = new Set(snippets.map((snippet) => snippet.id));
   const comparisonIds = new Set(comparisons.map((comparison) => comparison.id));
   const questionIds = new Set(profileQuestions.map((question) => question.id));
-
-  if (snippets.length !== expectedSnippetCount) {
-    throw new Error(
-      `Expected ${expectedSnippetCount} snippets, received ${snippets.length}.`
-    );
-  }
-
-  if (comparisons.length !== expectedComparisonCount) {
-    throw new Error(
-      `Expected ${expectedComparisonCount} comparisons, received ${comparisons.length}.`
-    );
-  }
 
   if (snippetIds.size !== snippets.length) {
     throw new Error("The seed contains duplicate snippet IDs.");
@@ -66,17 +53,8 @@ function validateSeedData() {
   }
 
   for (const category of CATEGORY_ORDER) {
-    const categorySnippets = snippets.filter(
-      (snippet) => snippet.category === category
-    );
-    const languages = new Set(
-      categorySnippets.map((snippet) => snippet.language)
-    );
-
-    if (categorySnippets.length !== 4 || languages.size !== 4) {
-      throw new Error(
-        `Category ${category} must contain exactly four different languages.`
-      );
+    if (!snippets.some((snippet) => snippet.category === category)) {
+      throw new Error(`Category ${category} does not contain snippets.`);
     }
   }
 
@@ -97,8 +75,15 @@ function validateSeedData() {
       throw new Error(`Comparison ${comparison.id} mixes categories.`);
     }
 
-    if (snippetA.language === snippetB.language) {
-      throw new Error(`Comparison ${comparison.id} uses the same language twice.`);
+    if (snippetA.style === snippetB.style) {
+      throw new Error(`Comparison ${comparison.id} uses the same style twice.`);
+    }
+
+    if (
+      JSON.stringify(snippetA.inheritedStyles) !==
+      JSON.stringify(snippetB.inheritedStyles)
+    ) {
+      throw new Error(`Comparison ${comparison.id} mixes inherited styles.`);
     }
   }
 
@@ -120,17 +105,22 @@ function validateSeedData() {
 }
 
 async function insertDataset(client) {
+  const hash = createHash("sha256").update(JSON.stringify({ DATASET, CATEGORY_ORDER, snippets, comparisons, profileQuestions })).digest("hex");
+  const existing = await client.query("SELECT seed_hash FROM datasets WHERE id = $1", [DATASET.id]);
+  if (existing.rowCount && existing.rows[0].seed_hash !== hash) {
+    throw new Error("This dataset version already exists with different contents. Create a new dataset ID/version; do not overwrite research data.");
+  }
   await client.query("UPDATE datasets SET active = false WHERE active = true");
   await client.query(
     `
-      INSERT INTO datasets (id, version, description, active)
-      VALUES ($1, $2, $3, true)
+      INSERT INTO datasets (id, version, description, active, seed_hash)
+      VALUES ($1, $2, $3, true, $4)
       ON CONFLICT (id) DO UPDATE SET
         version = EXCLUDED.version,
         description = EXCLUDED.description,
         active = true
     `,
-    [DATASET.id, DATASET.version, DATASET.description]
+    [DATASET.id, DATASET.version, DATASET.description, hash]
   );
 }
 
@@ -144,14 +134,18 @@ async function insertSnippets(client) {
     await client.query(
       `
         INSERT INTO snippets (
-          id, dataset_id, category, language, label, code,
+          id, dataset_id, category, language, style, source_language,
+          inherited_styles, label, code,
           intention_pt, intention_en, active
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
         ON CONFLICT (id) DO UPDATE SET
           dataset_id = EXCLUDED.dataset_id,
           category = EXCLUDED.category,
           language = EXCLUDED.language,
+          style = EXCLUDED.style,
+          source_language = EXCLUDED.source_language,
+          inherited_styles = EXCLUDED.inherited_styles,
           label = EXCLUDED.label,
           code = EXCLUDED.code,
           intention_pt = EXCLUDED.intention_pt,
@@ -163,6 +157,9 @@ async function insertSnippets(client) {
         snippet.datasetId,
         snippet.category,
         snippet.language,
+        snippet.style,
+        snippet.sourceLanguage,
+        JSON.stringify(snippet.inheritedStyles),
         snippet.label,
         snippet.code,
         snippet.intentionPt,
