@@ -143,11 +143,13 @@ export function continueTournament(flow, currentIndex, selectedSnippet) {
   }
 
   const nextFlow = [...flow];
+  const keepRight = currentStep.rightSnippet.id === selectedSnippet.id;
   nextFlow[currentIndex + 1] = {
     ...nextStep,
     id: comparison.id,
     datasetId: comparison.datasetId,
-    leftSnippet: selectedSnippet,
+    leftSnippet: keepRight ? nextStep.rightSnippet : selectedSnippet,
+    rightSnippet: keepRight ? selectedSnippet : nextStep.rightSnippet,
   };
 
   return nextFlow;

@@ -1,4 +1,6 @@
 import express from "express";
+import { createDatasetLoader } from "./dataset-cache.js";
+import { timedDatabase, timingHeader } from "./request-timing.js";
 import cors from "cors";
 import { randomBytes } from "node:crypto";
 import { DATASET } from "./seed-data.js";
@@ -6,37 +8,36 @@ import { InputError, replayTournament, buildFinalResult } from "./tournament.js"
 import { authorizeExport, exportQueries, rowsToCsv } from "./exports.js";
 import { exportXlsx } from "./export-xlsx.js";
 
-async function loadDataset(client, datasetId) {
-  const comparisons = await client.query(`SELECT c.id, c.category, c.dataset_id,
-    to_jsonb(a) AS snippet_a, to_jsonb(b) AS snippet_b FROM comparisons c
-    JOIN snippets a ON a.id = c.snippet_a_id JOIN snippets b ON b.id = c.snippet_b_id
-    WHERE c.dataset_id = $1 AND c.active AND a.active AND b.active
-    AND a.dataset_id = c.dataset_id AND b.dataset_id = c.dataset_id ORDER BY c.id`, [datasetId]);
-  const questions = await client.query(`SELECT id, question_pt, question_en, type, options, display_order
-    FROM profile_questions WHERE dataset_id = $1 AND active ORDER BY display_order`, [datasetId]);
-  return { comparisons: comparisons.rows, profileQuestions: questions.rows };
-}
-
 export function createApp(pool) {
   const app = express();
+  const loadDataset = createDatasetLoader();
   const origins = process.env.ALLOWED_ORIGINS?.split(",").map((value) => value.trim());
   app.use(cors(origins ? { origin: origins } : {}));
   app.use(express.json({ limit: "100kb" }));
   app.disable("x-powered-by");
 
   const route = (handler) => async (req, res, next) => {
-    try { await handler(req, res); } catch (error) { next(error); }
+    const started = performance.now();
+    const metrics = { connectionMs: 0, queryMs: 0, queries: 0 };
+    const database = timedDatabase(pool, metrics);
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+      res.set("Server-Timing", timingHeader(metrics, performance.now() - started));
+      return originalJson(body);
+    };
+    try { await handler(req, res, database); } catch (error) { next(error); }
   };
-  const sessionRoute = (handler) => route(async (req, res) => {
+  const sessionRoute = (handler) => route(async (req, res, database) => {
     if (typeof req.body?.sessionId !== "string") throw new InputError("sessionId is required");
-    const client = await pool.connect();
+    const content = await loadDataset(database, DATASET.id);
+    const client = await database.connect();
     try {
       await client.query("BEGIN");
       const session = (await client.query(`SELECT s.*, d.version FROM game_sessions s
         JOIN datasets d ON d.id = s.dataset_id WHERE s.id = $1 FOR UPDATE OF s`, [req.body.sessionId])).rows[0];
       if (!session) throw new InputError("Unknown session", 404);
       if (session.dataset_id !== DATASET.id) throw new InputError("Please start a new session with the current prototype", 409);
-      const result = await handler(req.body, client, session);
+      const result = await handler(req.body, client, session, content);
       await client.query("COMMIT");
       res.status(201).json(result);
     } catch (error) {
@@ -45,36 +46,35 @@ export function createApp(pool) {
     } finally { client.release(); }
   });
 
-  app.get("/api/health", route(async (_req, res) => {
-    await pool.query("SELECT 1");
+  app.get("/api/health", route(async (_req, res, database) => {
+    await database.query("SELECT 1");
     res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: DATASET.version });
   }));
 
-  app.post("/api/sessions", route(async (req, res) => {
+  app.post("/api/sessions", route(async (req, res, database) => {
     const language = req.body?.language || "pt";
     if (!["pt", "en"].includes(language)) throw new InputError("Invalid interface language");
-    const dataset = (await pool.query("SELECT id, version FROM datasets WHERE active")).rows[0];
+    const dataset = (await database.query("SELECT id, version FROM datasets WHERE active")).rows[0];
     if (dataset?.id !== DATASET.id) throw new InputError("The current dataset must be seeded before starting the game", 503);
-    const content = await loadDataset(pool, dataset.id);
+    const content = await loadDataset(database, dataset.id);
     replayTournament(content.comparisons, []);
     const id = randomBytes(16).toString("hex");
-    await pool.query("INSERT INTO game_sessions (id, dataset_id, interface_language) VALUES ($1, $2, $3)", [id, dataset.id, language]);
+    await database.query("INSERT INTO game_sessions (id, dataset_id, interface_language) VALUES ($1, $2, $3)", [id, dataset.id, language]);
     res.status(201).json({ sessionId: id, datasetId: dataset.id, datasetVersion: dataset.version, ...content });
   }));
 
   for (const path of ["/api/comparisons", "/api/v2/profile-questions", "/api/profile-questions", "/api/snippets"]) {
-    app.get(path, route(async (_req, res) => {
-      const dataset = (await pool.query("SELECT id FROM datasets WHERE active")).rows[0];
+    app.get(path, route(async (_req, res, database) => {
+      const dataset = (await database.query("SELECT id FROM datasets WHERE active")).rows[0];
       if (!dataset) throw new InputError("No active dataset", 503);
-      const content = await loadDataset(pool, dataset.id);
+      const content = await loadDataset(database, dataset.id);
       if (path === "/api/comparisons") return res.json(content.comparisons);
-      if (path === "/api/snippets") return res.json((await pool.query("SELECT * FROM snippets WHERE dataset_id = $1 AND active", [dataset.id])).rows);
+      if (path === "/api/snippets") return res.json((await database.query("SELECT * FROM snippets WHERE dataset_id = $1 AND active", [dataset.id])).rows);
       res.json(content.profileQuestions);
     }));
   }
 
-  app.post("/api/choices", sessionRoute(async (body, client, session) => {
-    const { comparisons } = await loadDataset(client, session.dataset_id);
+  app.post("/api/choices", sessionRoute(async (body, client, session, { comparisons }) => {
     const choices = (await client.query("SELECT * FROM choices WHERE session_id = $1 ORDER BY round_number", [session.id])).rows;
     const choice = {
       comparison_id: body.comparisonId, round_number: body.roundNumber, category: body.category,
@@ -99,8 +99,7 @@ export function createApp(pool) {
     return { ok: true };
   }));
 
-  app.post("/api/profile-answers", sessionRoute(async (body, client, session) => {
-    const { profileQuestions } = await loadDataset(client, session.dataset_id);
+  app.post("/api/profile-answers", sessionRoute(async (body, client, session, { profileQuestions }) => {
     const question = profileQuestions.find((item) => item.id === body.questionId);
     if (!question || (body.answer !== "skipped" && !question.options.some((item) => item.value === body.answer))) throw new InputError("Invalid profile answer");
     const existing = (await client.query("SELECT answer_value FROM profile_answers WHERE session_id = $1 AND question_id = $2", [session.id, question.id])).rows[0];
@@ -110,10 +109,9 @@ export function createApp(pool) {
     return { ok: true };
   }));
 
-  app.post("/api/final-results", sessionRoute(async (_body, client, session) => {
+  app.post("/api/final-results", sessionRoute(async (_body, client, session, { comparisons, profileQuestions }) => {
     const existing = (await client.query("SELECT result_json FROM final_results WHERE session_id = $1", [session.id])).rows[0];
     if (existing) return { ok: true, result: existing.result_json };
-    const { comparisons, profileQuestions } = await loadDataset(client, session.dataset_id);
     const choices = (await client.query("SELECT * FROM choices WHERE session_id = $1 ORDER BY round_number", [session.id])).rows;
     const answers = (await client.query("SELECT * FROM profile_answers WHERE session_id = $1 ORDER BY id", [session.id])).rows;
     const result = buildFinalResult(comparisons, choices, answers, profileQuestions, { id: session.dataset_id, version: session.version });

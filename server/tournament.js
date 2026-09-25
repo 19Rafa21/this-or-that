@@ -49,8 +49,9 @@ export function replayTournament(comparisons, choices) {
       check(left !== right && pair.has(left) && pair.has(right), "Choice does not match comparison");
       check(available.has(left) && available.has(right), "Inherited styles do not match previous category");
       if (round > 0) {
-        check(left === contender, "Previous winner must continue on the left");
-        check(!seen.has(right), "A challenger cannot appear twice");
+        check(left === contender || right === contender, "Previous winner must continue in the next pair");
+        const challenger = left === contender ? right : left;
+        check(!seen.has(challenger), "A challenger cannot appear twice");
       }
       check(typeof choice.skipped === "boolean", "Invalid skip flag");
       check(choice.skipped ? choice.selected_snippet_id == null : pair.has(choice.selected_snippet_id), "Invalid selection");

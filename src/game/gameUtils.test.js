@@ -104,18 +104,37 @@ test("mantém o vencedor como participante da ronda seguinte", () => {
   ];
 
   const afterFirstChoice = continueTournament(flow, 0, flow[0].rightSnippet);
-  assert.equal(afterFirstChoice[1].leftSnippet.id, "b");
-  assert.equal(afterFirstChoice[1].rightSnippet.id, "c");
+  assert.equal(afterFirstChoice[1].leftSnippet.id, "c");
+  assert.equal(afterFirstChoice[1].rightSnippet.id, "b");
   assert.equal(afterFirstChoice[1].id, "b-vs-c");
 
   const afterSecondChoice = continueTournament(
     afterFirstChoice,
     1,
-    afterFirstChoice[1].rightSnippet
+    afterFirstChoice[1].leftSnippet
   );
   assert.equal(afterSecondChoice[2].leftSnippet.id, "c");
   assert.equal(afterSecondChoice[2].rightSnippet.id, "d");
   assert.equal(afterSecondChoice[2].id, "c-vs-d");
+});
+
+test("mantém escolhas consecutivas à direita e preserva o fluxo original", () => {
+  const flow = buildCategoryTournament(tournamentComparisons(), "variables", () => 0.999);
+  const first = continueTournament(flow, 0, flow[0].rightSnippet);
+  const second = continueTournament(first, 1, first[1].rightSnippet);
+  assert.equal(second[2].rightSnippet.id, "b");
+  assert.equal(second[2].leftSnippet.id, "d");
+  assert.equal(second[2].id, "b-vs-d");
+  assert.equal(flow[1].leftSnippet, null);
+  assert.equal(flow[1].rightSnippet.id, "c");
+});
+
+test("mantém escolhas à esquerda, incluindo o contexto usado ao saltar", () => {
+  const flow = buildCategoryTournament(tournamentComparisons(), "variables", () => 0.999);
+  const next = continueTournament(flow, 0, flow[0].leftSnippet);
+  assert.equal(next[1].leftSnippet.id, "a");
+  assert.equal(next[1].rightSnippet.id, "c");
+  assert.equal(next[1].id, "a-vs-c");
 });
 
 test("usa o estilo vencedor para preparar a categoria seguinte", () => {

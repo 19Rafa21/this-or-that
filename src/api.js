@@ -10,10 +10,8 @@ async function request(path, options = {}) {
     REQUEST_TIMEOUT_MS
   );
 
-  let response;
-
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -21,16 +19,14 @@ async function request(path, options = {}) {
       },
       signal: controller.signal,
     });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Erro na API: ${response.status}`);
+    }
+    return await response.json();
   } finally {
     window.clearTimeout(timeoutId);
   }
-
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Erro na API: ${response.status}`);
-  }
-
-  return response.json();
 }
 
 export function getComparisons() {

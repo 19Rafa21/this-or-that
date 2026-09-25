@@ -39,6 +39,8 @@ export default function GamePage({ language, setLanguage }) {
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionError, setSubmissionError] = useState("");
+  const [selectedCardId, setSelectedCardId] = useState(null);
+  const [cardTransition, setCardTransition] = useState(null);
 
   useEffect(() => {
     async function loadGameData() {
@@ -208,6 +210,7 @@ export default function GamePage({ language, setLanguage }) {
       const skipped = choice === SKIPPED_VALUE;
       const selectedSnippet =
         choice === "right" ? currentStep.rightSnippet : currentStep.leftSnippet;
+      setSelectedCardId(skipped ? null : selectedSnippet.id);
       const answer = {
         comparisonId: currentStep.id,
         category: currentStep.category,
@@ -244,21 +247,37 @@ export default function GamePage({ language, setLanguage }) {
           : gameState.categoryWinners,
         dreamCode: resolution.categoryFinished ? [selectedSnippet] : gameState.dreamCode,
       };
-      await saveChoice({
-        sessionId,
-        comparisonId: currentStep.id,
-        roundNumber: currentStep.comparisonNumber,
-        category: currentStep.category,
-        leftSnippetId: currentStep.leftSnippet.id,
-        rightSnippetId: currentStep.rightSnippet.id,
-        selectedSnippetId: answer.selectedSnippetId,
-      });
-      responseSaved = true;
+      const nextStep = resolution.flow[gameState.currentIndex + 1];
+      const continuesComparison = nextStep?.type === "code" &&
+        nextStep.category === currentStep.category;
+      const animate = continuesComparison &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const changingSide = choice === "right" ? "left" : "right";
+      if (animate) setCardTransition({ side: changingSide, phase: "out" });
+      await Promise.all([
+        saveChoice({
+          sessionId,
+          comparisonId: currentStep.id,
+          roundNumber: currentStep.comparisonNumber,
+          category: currentStep.category,
+          leftSnippetId: currentStep.leftSnippet.id,
+          rightSnippetId: currentStep.rightSnippet.id,
+          selectedSnippetId: answer.selectedSnippetId,
+        }).then(() => { responseSaved = true; }),
+        ...(animate ? [new Promise((resolve) => setTimeout(resolve, 240))] : []),
+      ]);
       await goToNextStep(updatedState);
+      if (animate) {
+        setCardTransition({ side: changingSide, phase: "in" });
+        await new Promise((resolve) => setTimeout(resolve, 240));
+      }
+      if (!continuesComparison) setSelectedCardId(null);
     } catch (err) {
+      setSelectedCardId(null);
       console.error("Erro ao guardar escolha:", err);
       setSubmissionError(responseSaved ? text.finalSaveError : text.saveError);
     } finally {
+      setCardTransition(null);
       setIsSubmitting(false);
     }
   }
@@ -340,25 +359,27 @@ export default function GamePage({ language, setLanguage }) {
             </p>
 
             <div className="code-grid">
-              <button
-                type="button"
-                className="code-area clickable-code-area"
-                onClick={() => handleCodeChoice("left")}
-                aria-label={text.chooseLeft}
-                disabled={isSubmitting}
-              >
-                <pre className="comparison-code"><code>{currentStep.leftSnippet.code}</code></pre>
-              </button>
-
-              <button
-                type="button"
-                className="code-area clickable-code-area"
-                onClick={() => handleCodeChoice("right")}
-                aria-label={text.chooseRight}
-                disabled={isSubmitting}
-              >
-                <pre className="comparison-code"><code>{currentStep.rightSnippet.code}</code></pre>
-              </button>
+              {["left", "right"].map((side) => {
+                const snippet = currentStep[`${side}Snippet`];
+                const selected = selectedCardId === snippet.id;
+                const phase = cardTransition?.side === side ? cardTransition.phase : null;
+                return (
+                  <button
+                    key={side}
+                    type="button"
+                    className={`code-area clickable-code-area${selected ? " code-card-selected" : ""}${phase ? ` code-card-flip-${phase}` : ""}`}
+                    onClick={() => handleCodeChoice(side)}
+                    aria-label={`${side === "left" ? text.chooseLeft : text.chooseRight}${selected ? ` — ${text.selectedCard}` : ""}`}
+                    disabled={isSubmitting}
+                  >
+                    <span className="code-card-front">
+                      <span className="code-card-status">{selected ? text.selectedCard : "\u00a0"}</span>
+                      <pre className="comparison-code"><code>{snippet.code}</code></pre>
+                    </span>
+                    <span className="code-card-back" aria-hidden="true">{text.saving}</span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="game-bottom-area">

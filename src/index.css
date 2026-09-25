@@ -538,6 +538,7 @@ button {
 }
 
 .clickable-code-area {
+  position: relative;
   width: 100%;
   color: white;
   font-family: inherit;
@@ -549,7 +550,7 @@ button {
     box-shadow 0.14s ease;
 }
 
-.clickable-code-area:hover {
+.clickable-code-area:hover:not(:disabled):not(.code-card-selected) {
   background: #242424;
   border-color: rgba(200, 170, 255, 1);
   transform: translateY(-4px);
@@ -558,13 +559,83 @@ button {
     0 0 12px rgba(170, 125, 255, 0.48);
 }
 
-.clickable-code-area:active {
+.clickable-code-area:active:not(:disabled):not(.code-card-selected) {
   transform: translateY(1px);
 }
 
 .clickable-code-area:focus-visible {
   outline: 3px solid rgba(255, 255, 255, 0.75);
   outline-offset: 5px;
+}
+
+.code-card-status {
+  display: block;
+  min-height: 1.2em;
+  margin-bottom: 12px;
+  color: #ddcaff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.code-card-selected {
+  border-color: #ddcaff;
+  box-shadow: inset 0 0 0 2px #bb91ff, 0 0 16px rgba(170, 125, 255, 0.4);
+}
+
+.clickable-code-area:disabled {
+  cursor: wait;
+}
+
+.code-card-flip-out,
+.code-card-flip-in {
+  transform-style: preserve-3d;
+  overflow: visible;
+  pointer-events: none;
+  transition: none;
+  animation-duration: 240ms;
+  animation-fill-mode: both;
+}
+
+.code-card-front {
+  display: block;
+  backface-visibility: hidden;
+}
+
+.code-card-back {
+  display: none;
+  position: absolute;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: inherit;
+  background: #242424;
+  transform: rotateY(180deg);
+  backface-visibility: hidden;
+}
+
+.code-card-flip-out .code-card-back,
+.code-card-flip-in .code-card-back {
+  display: flex;
+}
+
+.code-card-flip-out {
+  animation-name: code-card-turn-out;
+  animation-timing-function: ease-in;
+}
+
+.code-card-flip-in {
+  animation-name: code-card-turn-in;
+  animation-timing-function: ease-out;
+}
+
+@keyframes code-card-turn-out {
+  from { transform: perspective(1200px) rotateY(0deg); }
+  to { transform: perspective(1200px) rotateY(-180deg); }
+}
+
+@keyframes code-card-turn-in {
+  from { transform: perspective(1200px) rotateY(180deg); }
+  to { transform: perspective(1200px) rotateY(0deg); }
 }
 
 .code-label {
