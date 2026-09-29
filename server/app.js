@@ -56,7 +56,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
 
   app.get("/api/health", route(async (_req, res, database) => {
     await database.query("SELECT 1");
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: DATASET.version, resultsVersion: 2 });
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: DATASET.version, resultsVersion: 3 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {

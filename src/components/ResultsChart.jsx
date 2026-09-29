@@ -17,6 +17,7 @@ export default function ResultsChart({ title, rows, text, percent = false, metad
   const chart = useRef(null);
   const [exportError, setExportError] = useState(false);
   const hasValues = rows.some((row) => row.value != null && (percent || row.value > 0));
+  const subtitleLines = metadata.split(" · ").flatMap((part) => wrapLabel(part, 38));
   useEffect(() => {
     chart.current = new Chart(canvas.current, {
       type: "bar",
@@ -27,7 +28,7 @@ export default function ResultsChart({ title, rows, text, percent = false, metad
         layout: { padding: 12 },
         plugins: {
           title: { display: true, text: wrapLabel(title, 42), color: "#271343", font: { size: 15 } },
-          subtitle: { display: true, text: metadata.split(" · "), color: "#665777", font: { size: 10 }, padding: { bottom: 14 } },
+          subtitle: { display: true, text: metadata.split(" · ").flatMap((part) => wrapLabel(part, 38)), color: "#665777", font: { size: 10 }, padding: { bottom: 14 } },
           tooltip: { callbacks: { label: (context) => {
             const row = rows[context.dataIndex];
             const value = `${context.parsed.x?.toFixed(percent ? 1 : 0)}${percent ? "%" : ""}`;
@@ -72,7 +73,7 @@ export default function ResultsChart({ title, rows, text, percent = false, metad
   return <article className="results-chart-card">
     <h3>{title}</h3>
     {!hasValues && <p className="results-muted">{text.empty}</p>}
-    <div className="results-canvas" style={{ height: Math.max(300, rows.length * 42 + 165) }}>
+    <div className="results-canvas" style={{ height: Math.max(300, rows.length * 42 + 100 + subtitleLines.length * 14) }}>
       <canvas ref={canvas} role="img" aria-label={title} />
     </div>
     <div className="results-chart-actions"><button type="button" onClick={exportPng}>{text.png}</button></div>

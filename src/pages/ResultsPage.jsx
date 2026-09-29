@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Layout from "../components/Layout.jsx";
 import ResultsChart from "../components/ResultsChart.jsx";
 import resultsTranslations from "../i18n/resultsTranslations.js";
-import { profileRows, preferenceRows } from "../results/resultsUtils.js";
+import { profileRows, preferenceRows, profileFilterLabels } from "../results/resultsUtils.js";
 import { adminLogin, adminLogout, getStudyResults } from "../api.js";
 
 export default function ResultsPage({ language, setLanguage }) {
@@ -12,7 +12,7 @@ export default function ResultsPage({ language, setLanguage }) {
   const [datasets, setDatasets] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [filters, setFilters] = useState({ from: "", to: "", status: "all", datasetId: "" });
+  const [filters, setFilters] = useState({ from: "", to: "", status: "all", datasetId: "", profile: {} });
   const requestNumber = useRef(0);
 
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function ResultsPage({ language, setLanguage }) {
     const session = auth;
     requestNumber.current++;
     setAuth(null); setData(null); setDatasets([]); setError(""); setBusy(false);
-    setFilters({ from: "", to: "", status: "all", datasetId: "" });
+    setFilters({ from: "", to: "", status: "all", datasetId: "", profile: {} });
     try { await adminLogout(session.token); } catch { /* Local access is cleared; the server session expires automatically. */ }
   }
 
@@ -69,7 +69,14 @@ export default function ResultsPage({ language, setLanguage }) {
     load(auth, filters);
   }
 
-  const metadata = data ? `${text.dataset} ${data.datasetVersion} · ${data.filters.from || "…"} — ${data.filters.to || "…"} UTC · ${data.filters.status === "complete" ? text.complete : text.all} · n=${data.summary.started}` : "";
+  const availableQuestions = datasets.find((dataset) => dataset.id === filters.datasetId)?.questions || [];
+  const appliedProfile = data ? profileFilterLabels(data.profile, data.filters.profile, text, language) : [];
+  function clearFilters() {
+    const cleared = { from: "", to: "", status: "all", datasetId: filters.datasetId, profile: {} };
+    setFilters(cleared);
+    load(auth, cleared);
+  }
+  const metadata = data ? `${text.dataset} ${data.datasetVersion} · ${data.filters.from || "…"} — ${data.filters.to || "…"} UTC · ${data.filters.status === "complete" ? text.complete : text.all} · n=${data.summary.started}/${data.population}${appliedProfile.length ? ` · ${appliedProfile.join(" · ")}` : ""}` : "";
   return <Layout language={language} setLanguage={setLanguage} showAbout={false} showBraces={false}>
     <section className="results-page">
       <header className="results-header"><div><p className="results-eyebrow">{text.private}</p>
@@ -83,7 +90,7 @@ export default function ResultsPage({ language, setLanguage }) {
         <button type="submit" disabled={busy}>{busy ? text.loading : text.login}</button>
       </form> : <>
         <form className="results-filters" onSubmit={apply}>
-          <label className="results-dataset-filter">{text.dataset}<select disabled={busy} value={filters.datasetId} onChange={(event) => setFilters({ ...filters, datasetId: event.target.value })}>
+          <label className="results-dataset-filter">{text.dataset}<select disabled={busy} value={filters.datasetId} onChange={(event) => setFilters({ ...filters, datasetId: event.target.value, profile: {} })}>
             {!datasets.length && <option value="">{text.defaultDataset}</option>}
             {datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>
               {dataset.version} · {dataset.sessions} {text.sessions}{dataset.active ? ` · ${text.currentDataset}` : ""}
@@ -94,7 +101,30 @@ export default function ResultsPage({ language, setLanguage }) {
           <label>{text.status}<select disabled={busy} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
             <option value="all">{text.all}</option><option value="complete">{text.complete}</option>
           </select></label>
+          <fieldset className="results-profile-filters" disabled={busy}>
+            <legend>{text.profileFilters}</legend>
+            <p className="results-caption">{text.profileFilterNote}</p>
+            <div className="results-profile-grid">
+              {availableQuestions.map((question) => <label key={question.id}>{question[`question_${language}`]}
+                <select value={filters.profile[question.id] || ""} onChange={(event) => {
+                  const profile = { ...filters.profile };
+                  if (event.target.value) profile[question.id] = event.target.value;
+                  else delete profile[question.id];
+                  setFilters({ ...filters, profile });
+                }}>
+                  <option value="">{text.allProfiles}</option>
+                  {question.options.map((option) => <option key={option.value} value={option.value}>{option[language]}</option>)}
+                  <option value="skipped">{text.skipped}</option>
+                  <option value="__missing__">{text.missing}</option>
+                </select>
+              </label>)}
+              {!availableQuestions.some((question) => question.id.endsWith(":age-band")) && <label>{text.ageFilter}
+                <select disabled value=""><option value="">{text.notCollected}</option></select>
+              </label>}
+            </div>
+          </fieldset>
           <button type="submit" disabled={busy}>{busy ? text.loading : text.apply}</button>
+          <button type="button" disabled={busy} onClick={clearFilters}>{text.clearFilters}</button>
         </form>
         <p className="results-caption">{text.scope}</p>
         <p className="results-caption">{text.datasetNote}</p>
@@ -102,6 +132,8 @@ export default function ResultsPage({ language, setLanguage }) {
       {error && <p className="results-error" role="alert">{text[error]}</p>}
       {auth && data && <div aria-busy={busy}>
         <p className="results-caption">{metadata} · {text.updated}: {new Date(data.generatedAt).toLocaleString(language === "pt" ? "pt-PT" : "en-GB")}</p>
+        <p className="results-match-count" role="status">{text.matchCount.replace("{matched}", data.summary.started).replace("{total}", data.population)}</p>
+        <p className="results-caption">{text.populationNote}</p>
         <div className="results-summary">
           {[ [text.started, data.summary.started], [text.completed, data.summary.completed],
             [text.unfinished, data.summary.unfinished], [text.completion, data.summary.started ? `${(data.summary.completed / data.summary.started * 100).toFixed(1)}%` : "—"]

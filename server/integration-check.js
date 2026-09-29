@@ -125,6 +125,38 @@ try {
   assert.equal(empty.summary.started, 0);
   assert.equal(empty.preferences.length, 0);
   await getResults("?from=2026-02-30", 400);
+  // Exercise conjunction on the same session, using the requested age + Pascal example.
+  const ageId = profileQuestions.find((q) => q.id.endsWith(":age-band")).id;
+  const firstId = profileQuestions.find((q) => q.id.endsWith(":first-language")).id;
+  await pool.query("UPDATE profile_answers SET answer_value = '55_or_more' WHERE question_id = $1 AND answer_value <> 'skipped'", [ageId]);
+  await pool.query("UPDATE profile_answers SET answer_value = 'pascal' WHERE question_id = $1 AND answer_value <> 'skipped'", [firstId]);
+  const filtered = (profile, extra = {}, status = 200) => getResults(`?${new URLSearchParams({ ...extra, profile: JSON.stringify(profile) })}`, status);
+  const both = await filtered({[ageId]: "55_or_more", [firstId]: "pascal"});
+  assert.equal(both.population, 3);
+  assert.deepEqual(both.summary, {started: 1, completed: 1, unfinished: 0});
+  assert.deepEqual(both.profile.find((q) => q.id === firstId).counts, {pascal: 1});
+  assert.equal(both.preferences.reduce((sum, row) => sum + row.wins, 0), 9);
+  assert.equal(both.preferences.reduce((sum, row) => sum + row.shown, 0), 18);
+  assert.equal(both.skips.reduce((sum, row) => sum + row.total, 0), 9);
+  assert.equal(both.finals.reduce((sum, row) => sum + row.total, 0), 3);
+  assert.equal((await filtered({[ageId]: "55_or_more", [firstId]: "skipped"})).summary.started, 0);
+  const missingProfile = await filtered({[ageId]: "__missing__", [firstId]: "__missing__"});
+  assert.deepEqual(missingProfile.summary, {started: 1, completed: 0, unfinished: 1});
+  assert.equal(missingProfile.finals.length, 0);
+  assert.equal((await filtered({[ageId]: "skipped"})).summary.completed, 1);
+  assert.equal((await filtered({[ageId]: "prefer_not_answer"})).summary.started, 0);
+  const completeOnly = await filtered({[firstId]: "pascal"}, {status: "complete"});
+  assert.equal(completeOnly.population, 2);
+  assert.equal(completeOnly.summary.started, 1);
+  const wrongDate = await filtered({[firstId]: "pascal"}, {from: "2026-09-26"});
+  assert.equal(wrongDate.population, 1);
+  assert.equal(wrongDate.summary.started, 0);
+  const allFive = Object.fromEntries(profileQuestions.map((q) => [q.id,
+    q.id === ageId ? "55_or_more" : q.id === firstId ? "pascal" : q.options[0].value]));
+  assert.equal((await filtered(allFive)).summary.started, 1);
+  assert.equal((await filtered({})).summary.started, 3);
+  await filtered({[ageId]: "invented"}, {}, 400);
+  await filtered({"other-dataset:age-band": "55_or_more"}, {}, 400);
   // Historical content and responses remain scoped to their own dataset.
   await pool.query(`INSERT INTO datasets(id, version, description, created_at) VALUES
     ('history', 'history', 'Isolated historical fixture', '2020-01-01'),
@@ -164,6 +196,9 @@ try {
   assert.equal(defaultResults.summary.started, 3);
   assert.equal(defaultResults.datasets.length, 3);
   assert.equal(defaultResults.datasets.find((dataset) => dataset.id === "history").sessions, 1);
+  assert.equal(historical.datasets.find((d) => d.id === "history").questions.length, 1);
+  assert.equal((await filtered({[ageId]: "55_or_more"}, {datasetId: "history"}, 400)).error !== undefined, true);
+  assert.equal((await filtered({[historical.profile[0].id]: "python"}, {datasetId: "history"})).summary.started, 1);
   await getResults("?datasetId=missing", 404);
   await getResults("?datasetId=history&datasetId=empty", 400);
   const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });

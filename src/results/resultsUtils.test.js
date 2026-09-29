@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { preferenceRows, profileRows } from "./resultsUtils.js";
+import { preferenceRows, profileRows, profileFilterLabels } from "./resultsUtils.js";
 
 test("preferências usam confrontos decididos e não confundem ausência com zero", () => {
   const rows = preferenceRows([
@@ -20,4 +20,17 @@ test("perfil distingue respostas, saltos, desconhecidos e perguntas não respond
   assert.deepEqual(rows, [{ label: "Opção A", value: 2 }, { label: "Saltou", value: 1 },
     { label: "Sem resposta", value: 2 }, { label: "Outras", value: 1 }]);
   assert.equal(rows.reduce((total, row) => total + row.value, 0), 6);
+});
+
+test("legendas exportadas identificam cada pergunta, opção, salto e ausência de resposta", () => {
+  const questions = [
+    {id: "age", question_pt: "Idade", question_en: "Age", options: [{value: "55", pt: "55 anos ou mais", en: "55 or older"}]},
+    {id: "first", question_pt: "Primeira linguagem", question_en: "First language", options: [{value: "pascal", pt: "Pascal", en: "Pascal"}]},
+  ];
+  const text = {skipped: "Saltou", missing: "Sem resposta"};
+  assert.deepEqual(profileFilterLabels(questions, {age: "55", first: "pascal"}, text, "pt"),
+    ["Idade: 55 anos ou mais", "Primeira linguagem: Pascal"]);
+  assert.deepEqual(profileFilterLabels(questions, {age: "skipped", first: "__missing__"}, text, "pt"),
+    ["Idade: Saltou", "Primeira linguagem: Sem resposta"]);
+  assert.deepEqual(profileFilterLabels(questions, {}, text, "en"), []);
 });

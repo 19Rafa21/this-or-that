@@ -1089,3 +1089,9 @@ a:focus-visible {
 
 .game-context { margin: 0 0 20px; }
 .game-skip-note { margin: 16px 0 0; }
+
+.results-profile-filters { flex-basis: 100%; min-width: 0; border: 0; padding: 12px 0; margin: 0; }
+.results-profile-filters legend { font-weight: 800; padding: 0; }
+.results-profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 18px; }
+.results-profile-grid label { justify-content: space-between; }
+.results-match-count { font-size: 1.2rem; font-weight: 800; margin: 24px 0 0; }
