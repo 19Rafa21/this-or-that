@@ -9,16 +9,17 @@ export default function ResultsPage({ language, setLanguage }) {
   const text = resultsTranslations[language];
   const [auth, setAuth] = useState(null);
   const [data, setData] = useState(null);
+  const [datasets, setDatasets] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [filters, setFilters] = useState({ from: "", to: "", status: "all" });
+  const [filters, setFilters] = useState({ from: "", to: "", status: "all", datasetId: "" });
   const requestNumber = useRef(0);
 
   useEffect(() => {
     if (!auth) return;
     const timer = setTimeout(() => {
       requestNumber.current++;
-      setAuth(null); setData(null); setBusy(false); setError("expired");
+      setAuth(null); setData(null); setDatasets([]); setBusy(false); setError("expired");
     }, Math.max(0, auth.expiresAt - Date.now()));
     return () => clearTimeout(timer);
   }, [auth]);
@@ -28,10 +29,13 @@ export default function ResultsPage({ language, setLanguage }) {
     setBusy(true); setError("");
     try {
       const result = await getStudyResults(session.token, selectedFilters);
-      if (request === requestNumber.current) setData(result);
+      if (request === requestNumber.current) {
+        setData(result); setDatasets(result.datasets);
+        setFilters((previous) => ({ ...previous, datasetId: result.datasetId }));
+      }
     } catch (err) {
       if (request !== requestNumber.current) return;
-      if (err.status === 401) { setAuth(null); setData(null); setError("expired"); }
+      if (err.status === 401) { setAuth(null); setData(null); setDatasets([]); setError("expired"); }
       else { setData(null); setError("error"); }
     } finally { if (request === requestNumber.current) setBusy(false); }
   }
@@ -54,7 +58,8 @@ export default function ResultsPage({ language, setLanguage }) {
   async function logout() {
     const session = auth;
     requestNumber.current++;
-    setAuth(null); setData(null); setError(""); setBusy(false);
+    setAuth(null); setData(null); setDatasets([]); setError(""); setBusy(false);
+    setFilters({ from: "", to: "", status: "all", datasetId: "" });
     try { await adminLogout(session.token); } catch { /* Local access is cleared; the server session expires automatically. */ }
   }
 
@@ -65,7 +70,7 @@ export default function ResultsPage({ language, setLanguage }) {
   }
 
   const metadata = data ? `${text.dataset} ${data.datasetVersion} · ${data.filters.from || "…"} — ${data.filters.to || "…"} UTC · ${data.filters.status === "complete" ? text.complete : text.all} · n=${data.summary.started}` : "";
-  return <Layout language={language} setLanguage={setLanguage} showAbout={false}>
+  return <Layout language={language} setLanguage={setLanguage} showAbout={false} showBraces={false}>
     <section className="results-page">
       <header className="results-header"><div><p className="results-eyebrow">{text.private}</p>
         <h1>{text.title}</h1><p>{text.intro}</p></div>
@@ -78,14 +83,21 @@ export default function ResultsPage({ language, setLanguage }) {
         <button type="submit" disabled={busy}>{busy ? text.loading : text.login}</button>
       </form> : <>
         <form className="results-filters" onSubmit={apply}>
-          <label>{text.from}<input type="date" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} /></label>
-          <label>{text.to}<input type="date" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} /></label>
-          <label>{text.status}<select value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
+          <label className="results-dataset-filter">{text.dataset}<select disabled={busy} value={filters.datasetId} onChange={(event) => setFilters({ ...filters, datasetId: event.target.value })}>
+            {!datasets.length && <option value="">{text.defaultDataset}</option>}
+            {datasets.map((dataset) => <option key={dataset.id} value={dataset.id}>
+              {dataset.version} · {dataset.sessions} {text.sessions}{dataset.active ? ` · ${text.currentDataset}` : ""}
+            </option>)}
+          </select></label>
+          <label>{text.from}<input disabled={busy} type="date" value={filters.from} onChange={(event) => setFilters({ ...filters, from: event.target.value })} /></label>
+          <label>{text.to}<input disabled={busy} type="date" value={filters.to} onChange={(event) => setFilters({ ...filters, to: event.target.value })} /></label>
+          <label>{text.status}<select disabled={busy} value={filters.status} onChange={(event) => setFilters({ ...filters, status: event.target.value })}>
             <option value="all">{text.all}</option><option value="complete">{text.complete}</option>
           </select></label>
           <button type="submit" disabled={busy}>{busy ? text.loading : text.apply}</button>
         </form>
         <p className="results-caption">{text.scope}</p>
+        <p className="results-caption">{text.datasetNote}</p>
       </>}
       {error && <p className="results-error" role="alert">{text[error]}</p>}
       {auth && data && <div aria-busy={busy}>
@@ -109,7 +121,7 @@ export default function ResultsPage({ language, setLanguage }) {
           {Object.keys(text.categories).map((category) => <ResultsChart key={category} title={`${text.finals} · ${text.categories[category]}`}
             rows={data.finals.filter((row) => row.category === category).map((row) => ({ label: row.style ? text.styles[row.style] || row.style : text.incomplete, value: row.total }))} text={text} metadata={metadata} />)}
         </div></section>
-        <section id="profile"><h2>{text.profile}</h2><p className="results-caption">{text.profileNote} {text.ageNote}</p><div className="results-grid">
+        <section id="profile"><h2>{text.profile}</h2><p className="results-caption">{text.profileNote} {data.profile.some((question) => question.id.endsWith(":age-band")) && text.ageNote}</p><div className="results-grid">
           {data.profile.map((question) => <ResultsChart key={question.id} title={question[`question_${language}`]}
             rows={profileRows(question, data.summary.started, text, language)} text={text} metadata={metadata} />)}
         </div></section>

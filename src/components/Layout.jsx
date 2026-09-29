@@ -10,6 +10,7 @@ export default function Layout({
   language,
   setLanguage,
   showAbout = true,
+  showBraces = true,
   bracesVariant = "default",
 }) {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ export default function Layout({
         </SmallNavButton>
       )}
 
-      <BackgroundBraces variant={bracesVariant} />
+      {showBraces && <BackgroundBraces variant={bracesVariant} />}
 
       {children}
     </main>

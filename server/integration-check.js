@@ -125,6 +125,47 @@ try {
   assert.equal(empty.summary.started, 0);
   assert.equal(empty.preferences.length, 0);
   await getResults("?from=2026-02-30", 400);
+  // Historical content and responses remain scoped to their own dataset.
+  await pool.query(`INSERT INTO datasets(id, version, description, created_at) VALUES
+    ('history', 'history', 'Isolated historical fixture', '2020-01-01'),
+    ('empty', 'empty', 'Isolated empty fixture', '2030-01-01')`);
+  await pool.query(`INSERT INTO snippets(id,dataset_id,category,language,style,source_language,inherited_styles,label,code,intention_pt,intention_en)
+    SELECT 'history:' || id,'history',category,language,style,source_language,inherited_styles,label,code,intention_pt,intention_en
+    FROM snippets WHERE dataset_id=$1`, [DATASET.id]);
+  await pool.query(`INSERT INTO comparisons(id,dataset_id,category,snippet_a_id,snippet_b_id,validation_notes)
+    SELECT 'history:' || id,'history',category,'history:' || snippet_a_id,'history:' || snippet_b_id,validation_notes
+    FROM comparisons WHERE dataset_id=$1`, [DATASET.id]);
+  await pool.query(`INSERT INTO profile_questions(id,dataset_id,question_pt,question_en,options,display_order)
+    SELECT 'history:' || id,'history',question_pt,question_en,options,display_order
+    FROM profile_questions WHERE id=$1`, [profileQuestions[0].id]);
+  await pool.query(`INSERT INTO game_sessions(id,dataset_id,interface_language,created_at,finished_at)
+    VALUES ('history-session','history','pt','2020-01-01T12:00:00Z','2020-01-01T12:10:00Z')`);
+  await pool.query(`INSERT INTO choices(session_id,comparison_id,round_number,category,left_snippet_id,right_snippet_id,selected_snippet_id,selected_language,selected_style,skipped)
+    SELECT 'history-session','history:' || comparison_id,round_number,category,'history:' || left_snippet_id,'history:' || right_snippet_id,
+      'history:' || selected_snippet_id,selected_language,selected_style,skipped
+    FROM choices WHERE session_id=(SELECT session_id FROM choices WHERE NOT skipped LIMIT 1)`);
+  await pool.query(`INSERT INTO profile_answers(session_id,question_id,answer_value)
+    VALUES ('history-session',$1,'python')`, [`history:${profileQuestions[0].id}`]);
+  await pool.query(`INSERT INTO final_results(session_id,result_json)
+    SELECT 'history-session',result_json FROM final_results WHERE session_id=(SELECT session_id FROM choices WHERE NOT skipped AND session_id <> 'history-session' LIMIT 1)`);
+  const historical = await getResults("?datasetId=history");
+  assert.equal(historical.datasetVersion, "history");
+  assert.equal(historical.filters.datasetId, "history");
+  assert.deepEqual(historical.summary, { started: 1, completed: 1, unfinished: 0 });
+  assert.equal(historical.profile.length, 1);
+  assert.deepEqual(historical.profile[0].counts, { python: 1 });
+  assert.equal(historical.preferences.reduce((sum, row) => sum + row.wins, 0), 9);
+  assert.equal(historical.skips.reduce((sum, row) => sum + row.total, 0), 9);
+  assert.equal(historical.finals.reduce((sum, row) => sum + row.total, 0), 3);
+  assert.equal((await getResults("?datasetId=history&from=2026-01-01")).summary.started, 0);
+  assert.equal((await getResults("?datasetId=empty")).summary.started, 0);
+  const defaultResults = await getResults();
+  assert.equal(defaultResults.datasetId, DATASET.id);
+  assert.equal(defaultResults.summary.started, 3);
+  assert.equal(defaultResults.datasets.length, 3);
+  assert.equal(defaultResults.datasets.find((dataset) => dataset.id === "history").sessions, 1);
+  await getResults("?datasetId=missing", 404);
+  await getResults("?datasetId=history&datasetId=empty", 400);
   const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });
   assert.equal(logout.status, 200);
   await getResults("", 401);

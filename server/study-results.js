@@ -1,4 +1,3 @@
-import { DATASET } from "./seed-data.js";
 import { InputError } from "./tournament.js";
 
 export function parseResultFilters(query = {}) {
@@ -14,7 +13,11 @@ export function parseResultFilters(query = {}) {
   const to = date(query.to);
   if (from && to && from > to) throw new InputError("Invalid date range");
   if (query.status && !["all", "complete"].includes(query.status)) throw new InputError("Invalid status filter");
-  return { from, to, status: query.status || "all" };
+  const datasetId = query.datasetId || null;
+  if (datasetId !== null && (typeof datasetId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9:_-]{0,99}$/.test(datasetId))) {
+    throw new InputError("Invalid dataset filter");
+  }
+  return { from, to, status: query.status || "all", datasetId };
 }
 
 const scope = `WITH eligible AS (
@@ -25,10 +28,21 @@ const scope = `WITH eligible AS (
 ) `;
 
 export async function loadStudyResults(pool, filters) {
-  const params = [DATASET.id, filters.from, filters.to, filters.status === "complete"];
   const client = await pool.connect();
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const datasets = (await client.query(`SELECT d.id, d.version, d.active,
+      count(s.id)::int AS sessions,
+      count(s.id) FILTER (WHERE s.finished_at IS NOT NULL)::int AS completed,
+      COALESCE(bool_or(EXISTS (SELECT 1 FROM choices c WHERE c.session_id = s.id)
+        OR EXISTS (SELECT 1 FROM profile_answers a WHERE a.session_id = s.id)), false) AS has_responses
+      FROM datasets d LEFT JOIN game_sessions s ON s.dataset_id = d.id
+      GROUP BY d.id ORDER BY d.created_at DESC, d.id DESC`)).rows;
+    const selected = filters.datasetId
+      ? datasets.find((dataset) => dataset.id === filters.datasetId)
+      : datasets.find((dataset) => dataset.has_responses) || datasets.find((dataset) => dataset.active) || datasets[0];
+    if (!selected) throw new InputError("Unknown dataset", 404);
+    const params = [selected.id, filters.from, filters.to, filters.status === "complete"];
     const summary = (await client.query(scope + `SELECT count(*)::int AS started,
       count(*) FILTER (WHERE finished_at IS NOT NULL)::int AS completed,
       count(*) FILTER (WHERE finished_at IS NULL)::int AS unfinished FROM eligible`, params)).rows[0];
@@ -57,7 +71,8 @@ export async function loadStudyResults(pool, filters) {
       WHERE f.result_json->>'protocolVersion' = '4' AND e.finished_at IS NOT NULL
       GROUP BY category.key, category.value ORDER BY category.key, category.value`, params)).rows;
     await client.query("COMMIT");
-    return { datasetVersion: DATASET.version, generatedAt: new Date().toISOString(), filters,
+    return { datasetId: selected.id, datasetVersion: selected.version, datasets,
+      generatedAt: new Date().toISOString(), filters: { ...filters, datasetId: selected.id },
       summary, profile, preferences, skips, finals };
   } catch (error) {
     await client.query("ROLLBACK");
