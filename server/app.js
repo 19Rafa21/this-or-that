@@ -7,8 +7,10 @@ import { DATASET } from "./seed-data.js";
 import { InputError, replayTournament, buildFinalResult } from "./tournament.js";
 import { authorizeExport, exportQueries, rowsToCsv } from "./exports.js";
 import { exportXlsx } from "./export-xlsx.js";
+import { createAdminAuth } from "./admin-auth.js";
+import { loadStudyResults, parseResultFilters } from "./study-results.js";
 
-export function createApp(pool) {
+export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   const app = express();
   const loadDataset = createDatasetLoader();
   const origins = process.env.ALLOWED_ORIGINS?.split(",").map((value) => value.trim());
@@ -45,6 +47,12 @@ export function createApp(pool) {
       throw error;
     } finally { client.release(); }
   });
+
+  app.post("/api/admin/login", route(adminAuth.login));
+  app.post("/api/admin/logout", adminAuth.logout);
+  app.get("/api/admin/results", adminAuth.authorize, route(async (req, res) => {
+    res.json(await loadStudyResults(pool, parseResultFilters(req.query)));
+  }));
 
   app.get("/api/health", route(async (_req, res, database) => {
     await database.query("SELECT 1");

@@ -1,0 +1,66 @@
+import { DATASET } from "./seed-data.js";
+import { InputError } from "./tournament.js";
+
+export function parseResultFilters(query = {}) {
+  const date = (value) => {
+    if (value === undefined || value === "") return null;
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+        value.startsWith("0000-") || Number.isNaN(Date.parse(value)) || new Date(value).toISOString().slice(0, 10) !== value) {
+      throw new InputError("Invalid date filter");
+    }
+    return value;
+  };
+  const from = date(query.from);
+  const to = date(query.to);
+  if (from && to && from > to) throw new InputError("Invalid date range");
+  if (query.status && !["all", "complete"].includes(query.status)) throw new InputError("Invalid status filter");
+  return { from, to, status: query.status || "all" };
+}
+
+const scope = `WITH eligible AS (
+  SELECT id, finished_at FROM game_sessions WHERE dataset_id = $1
+  AND ($2::date IS NULL OR created_at >= ($2::date::timestamp AT TIME ZONE 'UTC'))
+  AND ($3::date IS NULL OR created_at < (($3::date + 1)::timestamp AT TIME ZONE 'UTC'))
+  AND (NOT $4::boolean OR finished_at IS NOT NULL)
+) `;
+
+export async function loadStudyResults(pool, filters) {
+  const params = [DATASET.id, filters.from, filters.to, filters.status === "complete"];
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
+    const summary = (await client.query(scope + `SELECT count(*)::int AS started,
+      count(*) FILTER (WHERE finished_at IS NOT NULL)::int AS completed,
+      count(*) FILTER (WHERE finished_at IS NULL)::int AS unfinished FROM eligible`, params)).rows[0];
+    const profile = (await client.query(scope + `SELECT q.id, q.question_pt, q.question_en, q.options,
+      COALESCE((SELECT jsonb_object_agg(answer_value, total) FROM (
+        SELECT pa.answer_value, count(*)::int AS total FROM profile_answers pa
+        JOIN eligible e ON e.id = pa.session_id WHERE pa.question_id = q.id GROUP BY pa.answer_value
+      ) counts), '{}'::jsonb) AS counts
+      FROM profile_questions q WHERE q.dataset_id = $1 ORDER BY q.display_order`, params)).rows;
+    const preferences = (await client.query(scope + `SELECT c.category, s.style,
+      count(*)::int AS shown, count(*) FILTER (WHERE NOT c.skipped)::int AS decided,
+      count(*) FILTER (WHERE c.selected_snippet_id = s.id AND NOT c.skipped)::int AS wins,
+      count(*) FILTER (WHERE c.skipped)::int AS skipped
+      FROM choices c JOIN eligible e ON e.id = c.session_id
+      JOIN comparisons cmp ON cmp.id = c.comparison_id AND cmp.dataset_id = $1
+      JOIN snippets s ON s.id IN (c.left_snippet_id, c.right_snippet_id) AND s.dataset_id = $1
+      GROUP BY c.category, s.style ORDER BY c.category, s.style`, params)).rows;
+    const skips = (await client.query(scope + `SELECT c.category, count(*)::int AS total,
+      count(*) FILTER (WHERE c.skipped)::int AS skipped
+      FROM choices c JOIN eligible e ON e.id = c.session_id
+      GROUP BY c.category ORDER BY c.category`, params)).rows;
+    const finals = (await client.query(scope + `SELECT category.key AS category,
+      category.value #>> '{}' AS style, count(*)::int AS total
+      FROM final_results f JOIN eligible e ON e.id = f.session_id
+      CROSS JOIN LATERAL jsonb_each(f.result_json->'selectedStyles') category
+      WHERE f.result_json->>'protocolVersion' = '4' AND e.finished_at IS NOT NULL
+      GROUP BY category.key, category.value ORDER BY category.key, category.value`, params)).rows;
+    await client.query("COMMIT");
+    return { datasetVersion: DATASET.version, generatedAt: new Date().toISOString(), filters,
+      summary, profile, preferences, skips, finals };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+}

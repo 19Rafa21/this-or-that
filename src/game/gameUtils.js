@@ -1,5 +1,7 @@
 export const SKIPPED_VALUE = "skipped";
-export const GAME_STATE_VERSION = 4;
+// The profile changed with dataset 2026.6. Start a fresh local flow after upgrading;
+// previously submitted answers remain associated with their original dataset.
+export const GAME_STATE_VERSION = 5;
 
 const EXCLUDED_LANGUAGES = new Set([SKIPPED_VALUE, "unknown", ""]);
 

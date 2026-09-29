@@ -21,7 +21,9 @@ async function request(path, options = {}) {
     });
     if (!response.ok) {
       const message = await response.text();
-      throw new Error(message || `Erro na API: ${response.status}`);
+      const error = new Error(message || `Erro na API: ${response.status}`);
+      error.status = response.status;
+      throw error;
     }
     return await response.json();
   } finally {
@@ -63,4 +65,16 @@ export function saveFinalResult(result) {
     method: "POST",
     body: JSON.stringify(result),
   });
+}
+
+export function adminLogin(username, password) {
+  return request("/api/admin/login", { method: "POST", body: JSON.stringify({ username, password }) });
+}
+
+export function adminLogout(token) {
+  return request("/api/admin/logout", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function getStudyResults(token, filters) {
+  return request(`/api/admin/results?${new URLSearchParams(filters)}`, { headers: { Authorization: `Bearer ${token}` } });
 }

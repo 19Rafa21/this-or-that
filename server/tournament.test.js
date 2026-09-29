@@ -17,12 +17,12 @@ test("as 512 sequências de escolhas completam 9 pares e mantêm o contexto", ()
   assert.equal(results.size, 64);
 });
 
-test("intercala o perfil entre categorias e mantém 16 passos", () => {
+test("intercala o perfil entre categorias e mantém 14 passos", () => {
   const { flow } = simulateGame();
   assert.deepEqual(flow.map((item) => item.type === "profile" ? "profile" : item.category), [
     "variables", "variables", "variables", "profile", "profile",
     "loops", "loops", "loops", "profile", "profile",
-    "conditionals", "conditionals", "conditionals", "profile", "profile", "profile",
+    "conditionals", "conditionals", "conditionals", "profile",
   ]);
 });
 

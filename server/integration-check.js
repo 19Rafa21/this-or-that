@@ -7,6 +7,7 @@ import { createApp } from "./app.js";
 import { createSchema } from "./schema.js";
 import { DATASET, comparisons, profileQuestions } from "./seed-data.js";
 import { apiSnippets, simulateGame } from "./test-fixtures.js";
+import { createAdminAuth, hashAdminPassword } from "./admin-auth.js";
 
 // Use a separate, randomly named schema. Never seed or delete public tables.
 const schema = `this_or_that_test_${randomBytes(8).toString("hex")}`;
@@ -33,7 +34,10 @@ try {
     FROM jsonb_to_recordset($1::jsonb) AS x(id text,"datasetId" text,"questionPt" text,"questionEn" text,options jsonb,"displayOrder" int)`, [JSON.stringify(profileQuestions)]);
 
   process.env.EXPORT_TOKEN = randomBytes(32).toString("hex");
-  server = createApp(pool).listen(0, "127.0.0.1");
+  const adminPassword = randomBytes(24).toString("hex");
+  const adminHash = await hashAdminPassword(adminPassword);
+  const adminAuth = createAdminAuth({ configuration: () => ({ username: "test-admin", hash: adminHash }) });
+  server = createApp(pool, { adminAuth }).listen(0, "127.0.0.1");
   await once(server, "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   const post = async (path, body, status = 201) => {
@@ -45,7 +49,7 @@ try {
   for (const skip of [false, true]) {
     const session = await post("sessions", { language: skip ? "en" : "pt" });
     assert.equal(session.comparisons.length, 126);
-    assert.equal(session.profileQuestions.length, 7);
+    assert.equal(session.profileQuestions.length, 5);
     await post("final-results", { sessionId: session.sessionId, result: { fake: true } }, 400);
     const { choices } = simulateGame(() => skip ? "skip" : "right");
     const payload = (choice) => ({ sessionId: session.sessionId, comparisonId: choice.comparison_id,
@@ -58,7 +62,11 @@ try {
     await post("final-results", { sessionId: session.sessionId }, 400);
     await post("profile-answers", { sessionId: session.sessionId, questionId: profileQuestions[0].id, answer: "invented" }, 400);
     for (const question of profileQuestions) {
-      const body = { sessionId: session.sessionId, questionId: question.id, answer: skip ? "skipped" : question.options[0].value };
+      if (question.id.endsWith(":age-band")) {
+        await post("profile-answers", { sessionId: session.sessionId, questionId: question.id, answer: "18" }, 400);
+      }
+      const body = { sessionId: session.sessionId, questionId: question.id,
+        answer: skip ? "skipped" : question.id.endsWith(":age-band") ? "prefer_not_answer" : question.options[0].value };
       await post("profile-answers", body);
       await post("profile-answers", body);
     }
@@ -68,7 +76,7 @@ try {
     if (skip) assert.ok(Object.values(final.result.selectedStyles).every((value) => value === null));
     const retry = await post("final-results", { sessionId: session.sessionId });
     assert.deepEqual(retry, final);
-    console.log(`HTTP game (${skip ? "all skipped" : "all selected"}): 9 choices, 7 profile answers, validated result, safe retries`);
+    console.log(`HTTP game (${skip ? "all skipped" : "all selected"}): 9 choices, 5 profile answers, validated result, safe retries`);
   }
   const denied = await fetch(`${base}/api/export/sessions.csv`);
   assert.equal(denied.status, 401);
@@ -82,6 +90,45 @@ try {
   const counts = (await pool.query("SELECT (SELECT count(*) FROM choices) AS choices, (SELECT count(*) FROM final_results) AS results")).rows[0];
   assert.equal(Number(counts.choices), 18);
   assert.equal(Number(counts.results), 2);
+  // Test analytics only against this isolated schema; never create real study responses.
+  await pool.query("UPDATE game_sessions SET created_at = '2026-09-25T12:00:00Z', finished_at = '2026-09-25T12:10:00Z'");
+  await pool.query(`INSERT INTO game_sessions(id, dataset_id, interface_language, created_at)
+    VALUES ('unfinished-test', $1, 'pt', '2026-09-26T00:00:00Z')`, [DATASET.id]);
+  assert.equal((await fetch(`${base}/api/admin/results`)).status, 401);
+  await post("admin/login", { username: "test-admin", password: "incorrect" }, 401);
+  const login = await post("admin/login", { username: "test-admin", password: adminPassword }, 200);
+  const getResults = async (query = "", status = 200) => {
+    const response = await fetch(`${base}/api/admin/results${query}`, { headers: { Authorization: `Bearer ${login.token}` } });
+    assert.equal(response.status, status);
+    assert.equal(response.headers.get("cache-control"), "no-store");
+    return response.json();
+  };
+  const results = await getResults();
+  assert.deepEqual(results.summary, { started: 3, completed: 2, unfinished: 1 });
+  assert.equal(results.profile.length, 5);
+  const ageResults = results.profile.find((question) => question.id.endsWith(":age-band"));
+  assert.deepEqual(ageResults.counts, { prefer_not_answer: 1, skipped: 1 });
+  for (const question of results.profile) {
+    assert.equal(question.counts.skipped, 1);
+    assert.equal(Object.values(question.counts).reduce((sum, count) => sum + count, 0), 2);
+  }
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.shown, 0), 36);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.decided, 0), 18);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.wins, 0), 9);
+  assert.equal(results.skips.reduce((sum, row) => sum + row.skipped, 0), 9);
+  assert.equal(results.finals.filter((row) => row.style === null).length, 3);
+  assert.equal(results.finals.reduce((sum, row) => sum + row.total, 0), 6);
+  assert.equal((await getResults("?status=complete")).summary.started, 2);
+  assert.equal((await getResults("?from=2026-09-25&to=2026-09-25")).summary.started, 2);
+  assert.deepEqual((await getResults("?from=2026-09-26&to=2026-09-26")).summary, { started: 1, completed: 0, unfinished: 1 });
+  const empty = await getResults("?from=2026-09-27");
+  assert.equal(empty.summary.started, 0);
+  assert.equal(empty.preferences.length, 0);
+  await getResults("?from=2026-02-30", 400);
+  const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });
+  assert.equal(logout.status, 200);
+  await getResults("", 401);
+  console.log("Private results: authentication, counts, skips, date boundaries, empty data and logout verified.");
   console.log("All HTTP/PostgreSQL integration checks passed; public data was not touched.");
 } catch (error) {
   console.error("Integration check failed:", error.code || error.message);

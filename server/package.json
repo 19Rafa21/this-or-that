@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "admin:password": "node admin-password.js",
     "export": "node export-data.js",
     "export:xlsx": "node export-data.js --xlsx",
     "backup": "node export-data.js --backup",

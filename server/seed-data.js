@@ -1,8 +1,8 @@
 export const DATASET = {
-  id: "dataset-2026-05",
-  version: "2026.5",
+  id: "dataset-2026-06",
+  version: "2026.6",
   description:
-    "Cumulative prototype comparing C, Python, Java and Pascal declaration, loop and conditional styles.",
+    "Cumulative syntax study with a focused five-question profile including age bands.",
 };
 
 export const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
@@ -218,112 +218,80 @@ export const comparisons = [
 
 const option = (value, pt, en) => ({ value, pt, en });
 
+// Ordered as two short profile breaks, then age after the final comparisons.
+const languageOptions = [
+  option("python", "Python", "Python"),
+  option("javascript", "JavaScript", "JavaScript"),
+  option("java", "Java", "Java"),
+  option("csharp", "C#", "C#"),
+  option("c", "C", "C"),
+  option("cpp", "C++", "C++"),
+  option("pascal", "Pascal", "Pascal"),
+  option("other", "Outra", "Other"),
+  option("never_programmed", "Ainda não aprendi a programar", "I have not learned to program yet"),
+  option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
+];
+
 export const profileQuestions = [
   {
-    id: "2026-04-primary-language",
-    datasetId: DATASET.id,
+    id: "primary-language",
     displayOrder: 1,
     questionPt: "Que linguagem de programação usas mais atualmente?",
     questionEn: "Which programming language do you use most currently?",
-    options: [
-      option("python", "Python", "Python"),
-      option("javascript", "JavaScript", "JavaScript"),
-      option("java", "Java", "Java"),
-      option("csharp", "C#", "C#"),
-      option("c", "C", "C"),
-      option("cpp", "C++", "C++"),
-      option("pascal", "Pascal", "Pascal"),
+    options: [...languageOptions.filter((item) => !["never_programmed", "prefer_not_answer"].includes(item.value)),
       option("not_currently", "Não programo atualmente", "I do not currently program"),
-      option("other", "Outra", "Other"),
-      option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
-    ],
+      option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer")],
   },
   {
-    id: "2026-04-programming-experience",
-    datasetId: DATASET.id,
+    id: "programming-experience",
     displayOrder: 2,
     questionPt: "Há quantos anos programas?",
     questionEn: "How many years have you been programming?",
     options: [
+      option("never_programmed", "Ainda não comecei a programar", "I have not started programming yet"),
       option("less_than_1", "Menos de 1 ano", "Less than 1 year"),
-      option("1_to_3", "1 a 3 anos", "1 to 3 years"),
-      option("4_to_6", "4 a 6 anos", "4 to 6 years"),
-      option("7_to_10", "7 a 10 anos", "7 to 10 years"),
-      option("more_than_10", "Mais de 10 anos", "More than 10 years"),
+      option("1_to_less_than_4", "1 a menos de 4 anos", "1 to less than 4 years"),
+      option("4_to_less_than_7", "4 a menos de 7 anos", "4 to less than 7 years"),
+      option("7_to_less_than_11", "7 a menos de 11 anos", "7 to less than 11 years"),
+      option("11_or_more", "11 anos ou mais", "11 years or more"),
       option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
     ],
   },
   {
-    id: "2026-04-programming-context",
-    datasetId: DATASET.id,
+    id: "first-language",
     displayOrder: 3,
-    questionPt: "Em que contexto programas atualmente?",
-    questionEn: "In which context do you currently program?",
-    options: [
-      option("education", "Sobretudo académico", "Mostly academic"),
-      option("professional", "Sobretudo profissional", "Mostly professional"),
-      option("both", "Académico e profissional", "Academic and professional"),
-      option("personal", "Projetos pessoais", "Personal projects"),
-      option("not_currently", "Não programo atualmente", "I do not currently program"),
-      option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
-    ],
+    questionPt: "Qual foi a primeira linguagem de programação que aprendeste?",
+    questionEn: "Which programming language did you learn first?",
+    options: languageOptions,
   },
   {
-    id: "2026-04-programming-frequency",
-    datasetId: DATASET.id,
+    id: "programming-frequency",
     displayOrder: 4,
-    questionPt: "Com que frequência programas?",
-    questionEn: "How often do you program?",
+    questionPt: "Com que frequência programas atualmente?",
+    questionEn: "How often do you currently program?",
     options: [
       option("daily", "Diariamente", "Daily"),
       option("several_weekly", "Várias vezes por semana", "Several times a week"),
       option("weekly", "Cerca de uma vez por semana", "About once a week"),
       option("monthly", "Algumas vezes por mês", "A few times a month"),
-      option("rarely", "Raramente", "Rarely"),
+      option("rarely", "Menos de uma vez por mês", "Less than once a month"),
+      option("not_currently", "Não programo atualmente", "I do not currently program"),
       option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
     ],
   },
   {
-    id: "2026-04-self-assessed-level",
-    datasetId: DATASET.id,
+    id: "age-band",
     displayOrder: 5,
-    questionPt: "Como avalias o teu nível geral de programação?",
-    questionEn: "How do you assess your overall programming level?",
+    questionPt: "Qual é a tua faixa etária?",
+    questionEn: "What is your age group?",
     options: [
-      option("beginner", "Iniciante", "Beginner"),
-      option("intermediate", "Intermédio", "Intermediate"),
-      option("advanced", "Avançado", "Advanced"),
-      option("expert", "Especialista", "Expert"),
+      option("under_18", "Menos de 18 anos", "Under 18"),
+      option("18_to_24", "18–24 anos", "18–24"),
+      option("25_to_34", "25–34 anos", "25–34"),
+      option("35_to_44", "35–44 anos", "35–44"),
+      option("45_to_54", "45–54 anos", "45–54"),
+      option("55_or_more", "55 anos ou mais", "55 or older"),
       option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
     ],
   },
-];
-
-profileQuestions.push(
-  {
-    id: "first-language",
-    datasetId: DATASET.id,
-    displayOrder: 6,
-    questionPt: "Qual foi a primeira linguagem de programação que aprendeste?",
-    questionEn: "Which programming language did you learn first?",
-    options: profileQuestions[0].options.filter((item) => item.value !== "not_currently"),
-  },
-  {
-    id: "preference-change",
-    datasetId: DATASET.id,
-    displayOrder: 7,
-    questionPt: "Desde que começaste a programar, as tuas preferências de estilo de código mudaram?",
-    questionEn: "Have your code-style preferences changed since you started programming?",
-    options: [
-      option("unchanged", "Não mudaram", "They have not changed"),
-      option("slightly", "Mudaram um pouco", "They have changed a little"),
-      option("substantially", "Mudaram bastante", "They have changed substantially"),
-      option("unsure", "Não sei avaliar", "I am not sure"),
-      option("prefer_not_answer", "Prefiro não responder", "Prefer not to answer"),
-    ],
-  }
-);
-
-for (const question of profileQuestions) {
-  question.id = `${DATASET.id}:${question.id.replace(/^2026-04-/, "")}`;
-}
+].map((question) => ({ ...question, id: `${DATASET.id}:${question.id}`, datasetId: DATASET.id }));

@@ -4,4 +4,4 @@ RewriteBase /~pg55999/
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(?:game|about|conclusion)/?$ index.html [L]
+RewriteRule ^(?:game|about|conclusion|resultados)/?$ index.html [L]

@@ -50,7 +50,7 @@ test("todas as comparações referenciam snippets existentes e compatíveis", ()
 });
 
 test("perguntas usam valores canónicos e rótulos bilingues", () => {
-  assert.equal(profileQuestions.length, 7);
+  assert.equal(profileQuestions.length, 5);
 
   for (const question of profileQuestions) {
     const values = question.options.map((item) => item.value);
@@ -64,4 +64,18 @@ test("perguntas usam valores canónicos e rótulos bilingues", () => {
       assert.ok(item.en);
     }
   }
+});
+
+test("perfil conciso inclui idade e permite não responder a todas as perguntas", () => {
+  assert.deepEqual(profileQuestions.map((question) => question.id.split(":").at(-1)), [
+    "primary-language", "programming-experience", "first-language", "programming-frequency", "age-band",
+  ]);
+  assert.deepEqual(profileQuestions.map((question) => question.displayOrder), [1, 2, 3, 4, 5]);
+  for (const question of profileQuestions) {
+    assert.ok(question.options.some((item) => item.value === "prefer_not_answer"));
+  }
+  const age = profileQuestions.find((question) => question.id.endsWith(":age-band"));
+  assert.deepEqual(age.options.map((item) => item.value), [
+    "under_18", "18_to_24", "25_to_34", "35_to_44", "45_to_54", "55_or_more", "prefer_not_answer",
+  ]);
 });
