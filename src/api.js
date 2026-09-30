@@ -78,3 +78,7 @@ export function adminLogout(token) {
 export function getStudyResults(token, filters) {
   return request(`/api/admin/results?${new URLSearchParams({ ...filters, profile: JSON.stringify(filters.profile || {}) })}`, { headers: { Authorization: `Bearer ${token}` } });
 }
+
+export function getPublicResults() {
+  return request("/api/public/results");
+}

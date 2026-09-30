@@ -12,7 +12,7 @@ function wrapLabel(value, maxLength) {
   return lines;
 }
 
-export default function ResultsChart({ title, rows, text, percent = false, metadata = "" }) {
+export default function ResultsChart({ title, rows, text, percent = false, metadata = "", toolsEnabled = true }) {
   const canvas = useRef(null);
   const chart = useRef(null);
   const [exportError, setExportError] = useState(false);
@@ -70,15 +70,7 @@ export default function ResultsChart({ title, rows, text, percent = false, metad
   }
   const detailed = rows.some((row) => row.shown !== undefined);
   const skipCounts = rows.some((row) => row.total !== undefined);
-  return <article className="results-chart-card">
-    <h3>{title}</h3>
-    {!hasValues && <p className="results-muted">{text.empty}</p>}
-    <div className="results-canvas" style={{ height: Math.max(300, rows.length * 42 + 100 + subtitleLines.length * 14) }}>
-      <canvas ref={canvas} role="img" aria-label={title} />
-    </div>
-    <div className="results-chart-actions"><button type="button" onClick={exportPng}>{text.png}</button></div>
-    {exportError && <p role="alert">{text.exportError}</p>}
-    <details><summary>{text.table}</summary><div className="results-table-scroll"><table>
+  const valuesTable = <div className="results-table-scroll"><table>
       <thead><tr><th>{text.label}</th><th>{percent ? text.percentage : text.count}</th>
         {detailed && <><th>{text.won}</th><th>{text.decided}</th><th>{text.shown}</th><th>{text.skipped}</th></>}
         {skipCounts && <><th>{text.count}</th><th>{text.skipped}</th></>}
@@ -88,6 +80,16 @@ export default function ResultsChart({ title, rows, text, percent = false, metad
         {detailed && <><td>{row.wins}</td><td>{row.decided}</td><td>{row.shown}</td><td>{row.skipped}</td></>}
         {skipCounts && <><td>{row.total}</td><td>{row.skipped}</td></>}
       </tr>)}</tbody>
-    </table></div></details>
+    </table></div>;
+  return <article className="results-chart-card">
+    <h3>{title}</h3>
+    {!hasValues && <p className="results-muted">{text.empty}</p>}
+    <div className="results-canvas" style={{ height: Math.max(300, rows.length * 42 + 100 + subtitleLines.length * 14) }}>
+      <canvas ref={canvas} role="img" aria-label={title} />
+    </div>
+    {toolsEnabled && <div className="results-chart-actions"><button type="button" onClick={exportPng}>{text.png}</button></div>}
+    {exportError && <p role="alert">{text.exportError}</p>}
+    {toolsEnabled ? <details><summary>{text.table}</summary>{valuesTable}</details>
+      : <div className="sr-only">{valuesTable}</div>}
   </article>;
 }

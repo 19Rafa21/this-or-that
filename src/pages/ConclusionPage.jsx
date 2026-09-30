@@ -84,6 +84,7 @@ export default function ConclusionPage({ language, setLanguage }) {
         </article>
 
         <div className="conclusion-actions">
+          {finalWinner && <PrimaryButton className="general-results-button" onClick={() => navigate("/resultados-gerais")}>{text.generalResults}</PrimaryButton>}
           <PrimaryButton onClick={handleShare}>{text.share}</PrimaryButton>
 
           <p className="share-status" role="status" aria-live="polite">

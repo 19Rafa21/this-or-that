@@ -201,6 +201,32 @@ try {
   assert.equal((await filtered({[historical.profile[0].id]: "python"}, {datasetId: "history"})).summary.started, 1);
   await getResults("?datasetId=missing", 404);
   await getResults("?datasetId=history&datasetId=empty", 400);
+  const publicResponse = await fetch(`${base}/api/public/results`);
+  assert.equal(publicResponse.status, 200);
+  assert.equal(publicResponse.headers.get("cache-control"), "no-store");
+  const publicResults = await publicResponse.json();
+  assert.deepEqual(Object.keys(publicResults).sort(), ["finals", "generatedAt", "preferences", "profile", "skips", "summary"]);
+  assert.deepEqual(publicResults.summary, defaultResults.summary);
+  assert.deepEqual(publicResults.preferences, defaultResults.preferences);
+  assert.deepEqual(publicResults.finals, defaultResults.finals);
+  assert.equal(publicResults.profile.length, 5);
+  assert.ok(publicResults.profile.every((q) => Object.keys(q).sort().join(",") === "counts,options,question_en,question_pt"));
+  assert.equal(publicResults.profile.find((q) => q.question_pt.includes("faixa etária")).counts["55_or_more"], 1);
+  for (const query of ["datasetId=history", "status=complete", "from=2026-01-01", "profile=%7B%7D", "sessionId=history-session"]) {
+    assert.equal((await fetch(`${base}/api/public/results?${query}`)).status, 400);
+  }
+  assert.equal((await fetch(`${base}/api/admin/results`)).status, 401);
+  assert.equal((await fetch(`${base}/api/export/sessions.csv`)).status, 401);
+  // A new active study with no responses must never publish historical data as fallback.
+  await pool.query("UPDATE datasets SET active = false WHERE active");
+  await pool.query("UPDATE datasets SET active = true WHERE id = 'empty'");
+  const emptyPublic = await (await fetch(`${base}/api/public/results`)).json();
+  assert.deepEqual(emptyPublic.summary, {started: 0, completed: 0, unfinished: 0});
+  assert.deepEqual(emptyPublic.profile, []);
+  assert.deepEqual(emptyPublic.finals, []);
+  await pool.query("UPDATE datasets SET active = false WHERE active");
+  await pool.query("UPDATE datasets SET active = true WHERE id = $1", [DATASET.id]);
+  console.log("Public results: aggregate-only response, active dataset, empty study, no filters and private routes protected.");
   const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });
   assert.equal(logout.status, 200);
   await getResults("", 401);

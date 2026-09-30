@@ -45,7 +45,7 @@ const scope = `WITH base AS (
   )
 ) `;
 
-export async function loadStudyResults(pool, filters) {
+export async function loadStudyResults(pool, filters, { activeOnly = false } = {}) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
@@ -59,7 +59,7 @@ export async function loadStudyResults(pool, filters) {
         OR EXISTS (SELECT 1 FROM profile_answers a WHERE a.session_id = s.id)), false) AS has_responses
       FROM datasets d LEFT JOIN game_sessions s ON s.dataset_id = d.id
       GROUP BY d.id ORDER BY d.created_at DESC, d.id DESC`)).rows;
-    const selected = filters.datasetId
+    const selected = activeOnly ? datasets.find((dataset) => dataset.active) : filters.datasetId
       ? datasets.find((dataset) => dataset.id === filters.datasetId)
       : datasets.find((dataset) => dataset.has_responses) || datasets.find((dataset) => dataset.active) || datasets[0];
     if (!selected) throw new InputError("Unknown dataset", 404);
@@ -105,4 +105,23 @@ export async function loadStudyResults(pool, filters) {
     await client.query("ROLLBACK");
     throw error;
   } finally { client.release(); }
+}
+
+// Public overview: fixed scope, explicit aggregate fields, no dataset catalogue or filters.
+export async function loadPublicResults(pool) {
+  const data = await loadStudyResults(pool, parseResultFilters(), { activeOnly: true });
+  return {
+    generatedAt: data.generatedAt,
+    summary: { started: data.summary.started, completed: data.summary.completed, unfinished: data.summary.unfinished },
+    profile: data.profile.map((question) => ({
+      question_pt: question.question_pt, question_en: question.question_en,
+      options: question.options.map(({ value, pt, en }) => ({ value, pt, en })),
+      counts: Object.fromEntries([...question.options.map((option) => option.value), "skipped"]
+        .map((value) => [value, question.counts[value] || 0])),
+    })),
+    preferences: data.preferences.map(({ category, style, shown, decided, wins, skipped }) =>
+      ({ category, style, shown, decided, wins, skipped })),
+    skips: data.skips.map(({ category, total, skipped }) => ({ category, total, skipped })),
+    finals: data.finals.map(({ category, style, total }) => ({ category, style, total })),
+  };
 }

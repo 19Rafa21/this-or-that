@@ -8,7 +8,7 @@ import { InputError, replayTournament, buildFinalResult } from "./tournament.js"
 import { authorizeExport, exportQueries, rowsToCsv } from "./exports.js";
 import { exportXlsx } from "./export-xlsx.js";
 import { createAdminAuth } from "./admin-auth.js";
-import { loadStudyResults, parseResultFilters } from "./study-results.js";
+import { loadStudyResults, loadPublicResults, parseResultFilters } from "./study-results.js";
 
 export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   const app = express();
@@ -54,9 +54,15 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
     res.json(await loadStudyResults(pool, parseResultFilters(req.query)));
   }));
 
+  app.get("/api/public/results", route(async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (Object.keys(req.query).length) throw new InputError("Public results do not support filters");
+    res.json(await loadPublicResults(pool));
+  }));
+
   app.get("/api/health", route(async (_req, res, database) => {
     await database.query("SELECT 1");
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: DATASET.version, resultsVersion: 3 });
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: DATASET.version, resultsVersion: 4 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {

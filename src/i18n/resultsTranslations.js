@@ -1,5 +1,10 @@
 export default {
   pt: {
+    publicTitle: "Resultados gerais", publicEyebrow: "As escolhas de quem participou",
+    publicIntro: "Explora as preferências de código e o perfil de quem participou no questionário atual.",
+    publicScope: "Os gráficos reúnem as respostas do questionário atualmente disponível, incluindo jogos por concluir. Cada jogo conta como uma participação; uma pessoa pode jogar mais de uma vez.",
+    currentStudy: "Questionário atual", backToCode: "Voltar ao meu código", home: "Página inicial",
+    refresh: "Atualizar gráficos", publicEmpty: "Ainda não há participações neste questionário. Os gráficos aparecem à medida que as respostas são guardadas.",
     title: "Resultados do estudo", private: "Área reservada", intro: "Participações, perfil e preferências de código.",
     loginTitle: "Entrar na área de análise", loginNote: "Acesso reservado à equipa do estudo. A sessão dura uma hora; atualizar a página pede novo acesso.",
     username: "Utilizador", password: "Palavra-passe", login: "Entrar", logout: "Sair", loading: "A carregar…",
@@ -32,6 +37,11 @@ export default {
     exportError: "Não foi possível guardar a imagem.",
   },
   en: {
+    publicTitle: "Overall results", publicEyebrow: "Choices from those who took part",
+    publicIntro: "Explore the code preferences and profiles of those who took part in the current questionnaire.",
+    publicScope: "Charts combine responses to the questionnaire currently available, including unfinished games. Each game counts as one session; a person may play more than once.",
+    currentStudy: "Current questionnaire", backToCode: "Back to my code", home: "Home",
+    refresh: "Refresh charts", publicEmpty: "This questionnaire has no sessions yet. Charts will appear as responses are saved.",
     title: "Study results", private: "Restricted area", intro: "Participation, profiles and code preferences.",
     loginTitle: "Sign in to study analytics", loginNote: "Access is restricted to the study team. Sessions last one hour; refreshing the page requires signing in again.",
     username: "Username", password: "Password", login: "Sign in", logout: "Sign out", loading: "Loading…",
