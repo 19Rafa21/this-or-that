@@ -3,7 +3,7 @@ import "dotenv/config";
 import pg from "pg";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { DATASET, CATEGORY_ORDER, snippets, comparisons, profileQuestions } from "./seed-data.js";
+import { DATASET, CATEGORY_ORDER, snippets, comparisons, profileQuestions } from "./datasets/2026-06.js";
 
 const question = profileQuestions.find((item) => item.id.endsWith(":programming-experience"));
 const oldLabels = {

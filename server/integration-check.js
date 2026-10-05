@@ -48,7 +48,7 @@ try {
   };
   for (const skip of [false, true]) {
     const session = await post("sessions", { language: skip ? "en" : "pt" });
-    assert.equal(session.comparisons.length, 126);
+    assert.equal(session.comparisons.length, 78);
     assert.equal(session.profileQuestions.length, 5);
     await post("final-results", { sessionId: session.sessionId, result: { fake: true } }, 400);
     const { choices } = simulateGame(() => skip ? "skip" : "right");
@@ -76,7 +76,7 @@ try {
     if (skip) assert.ok(Object.values(final.result.selectedStyles).every((value) => value === null));
     const retry = await post("final-results", { sessionId: session.sessionId });
     assert.deepEqual(retry, final);
-    console.log(`HTTP game (${skip ? "all skipped" : "all selected"}): 9 choices, 5 profile answers, validated result, safe retries`);
+    console.log(`HTTP game (${skip ? "all skipped" : "all selected"}): 8 choices, 5 profile answers, validated result, safe retries`);
   }
   const denied = await fetch(`${base}/api/export/sessions.csv`);
   assert.equal(denied.status, 401);
@@ -88,7 +88,7 @@ try {
     assert.ok(csv.includes(DATASET.version));
   }
   const counts = (await pool.query("SELECT (SELECT count(*) FROM choices) AS choices, (SELECT count(*) FROM final_results) AS results")).rows[0];
-  assert.equal(Number(counts.choices), 18);
+  assert.equal(Number(counts.choices), 16);
   assert.equal(Number(counts.results), 2);
   // Test analytics only against this isolated schema; never create real study responses.
   await pool.query("UPDATE game_sessions SET created_at = '2026-09-25T12:00:00Z', finished_at = '2026-09-25T12:10:00Z'");
@@ -112,10 +112,10 @@ try {
     assert.equal(question.counts.skipped, 1);
     assert.equal(Object.values(question.counts).reduce((sum, count) => sum + count, 0), 2);
   }
-  assert.equal(results.preferences.reduce((sum, row) => sum + row.shown, 0), 36);
-  assert.equal(results.preferences.reduce((sum, row) => sum + row.decided, 0), 18);
-  assert.equal(results.preferences.reduce((sum, row) => sum + row.wins, 0), 9);
-  assert.equal(results.skips.reduce((sum, row) => sum + row.skipped, 0), 9);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.shown, 0), 32);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.decided, 0), 16);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.wins, 0), 8);
+  assert.equal(results.skips.reduce((sum, row) => sum + row.skipped, 0), 8);
   assert.equal(results.finals.filter((row) => row.style === null).length, 3);
   assert.equal(results.finals.reduce((sum, row) => sum + row.total, 0), 6);
   assert.equal((await getResults("?status=complete")).summary.started, 2);
@@ -135,9 +135,9 @@ try {
   assert.equal(both.population, 3);
   assert.deepEqual(both.summary, {started: 1, completed: 1, unfinished: 0});
   assert.deepEqual(both.profile.find((q) => q.id === firstId).counts, {pascal: 1});
-  assert.equal(both.preferences.reduce((sum, row) => sum + row.wins, 0), 9);
-  assert.equal(both.preferences.reduce((sum, row) => sum + row.shown, 0), 18);
-  assert.equal(both.skips.reduce((sum, row) => sum + row.total, 0), 9);
+  assert.equal(both.preferences.reduce((sum, row) => sum + row.wins, 0), 8);
+  assert.equal(both.preferences.reduce((sum, row) => sum + row.shown, 0), 16);
+  assert.equal(both.skips.reduce((sum, row) => sum + row.total, 0), 8);
   assert.equal(both.finals.reduce((sum, row) => sum + row.total, 0), 3);
   assert.equal((await filtered({[ageId]: "55_or_more", [firstId]: "skipped"})).summary.started, 0);
   const missingProfile = await filtered({[ageId]: "__missing__", [firstId]: "__missing__"});
@@ -186,8 +186,8 @@ try {
   assert.deepEqual(historical.summary, { started: 1, completed: 1, unfinished: 0 });
   assert.equal(historical.profile.length, 1);
   assert.deepEqual(historical.profile[0].counts, { python: 1 });
-  assert.equal(historical.preferences.reduce((sum, row) => sum + row.wins, 0), 9);
-  assert.equal(historical.skips.reduce((sum, row) => sum + row.total, 0), 9);
+  assert.equal(historical.preferences.reduce((sum, row) => sum + row.wins, 0), 8);
+  assert.equal(historical.skips.reduce((sum, row) => sum + row.total, 0), 8);
   assert.equal(historical.finals.reduce((sum, row) => sum + row.total, 0), 3);
   assert.equal((await getResults("?datasetId=history&from=2026-01-01")).summary.started, 0);
   assert.equal((await getResults("?datasetId=empty")).summary.started, 0);
@@ -227,6 +227,53 @@ try {
   await pool.query("UPDATE datasets SET active = false WHERE active");
   await pool.query("UPDATE datasets SET active = true WHERE id = $1", [DATASET.id]);
   console.log("Public results: aggregate-only response, active dataset, empty study, no filters and private routes protected.");
+  const management = async (action, body, expected = 200, authenticated = true) => {
+    const response = await fetch(`${base}/api/admin/datasets${action ? `/${action}` : ''}`, {
+      method: action ? 'POST' : 'GET', headers: { 'Content-Type': 'application/json', ...(authenticated ? { Authorization: `Bearer ${login.token}` } : {}) },
+      ...(action ? { body: JSON.stringify(body || {}) } : {}),
+    });
+    const result = await response.json();
+    assert.equal(response.status, expected, JSON.stringify(result));
+    return result;
+  };
+  await management('', null, 401, false);
+  await management('create', null, 401, false);
+  const ongoing = await post('sessions', { language: 'pt' });
+  await management('create');
+  await management('create', {}, 409);
+  let draft = (await management('')).draft;
+  assert.equal(draft.content.questions.length, 5);
+  const originalQuestion = draft.content.questions[0].question_pt;
+  draft.content.version = 'integration-published';
+  draft.content.questions[0].question_pt = 'Pergunta revista para teste';
+  draft.content.snippets[0].code = 'example revised for test';
+  const invalid = structuredClone(draft.content);
+  invalid.questions[0].options[0].value = 'tampered';
+  await management('save', { revision: draft.revision, content: invalid }, 400);
+  await management('save', { revision: draft.revision, content: draft.content });
+  await management('activate', { revision: draft.revision }, 409);
+  draft = (await management('')).draft;
+  await management('activate', { revision: draft.revision });
+  await management('activate', { revision: draft.revision }, 409);
+  const managed = await management('');
+  assert.equal(managed.draft, null);
+  assert.equal(managed.active.version, 'integration-published');
+  assert.ok(managed.active.activated_at);
+  assert.equal(managed.active.sessions, 0);
+  const updatedSession = await post('sessions', { language: 'pt' });
+  assert.equal(updatedSession.datasetId, managed.active.id);
+  assert.equal(updatedSession.profileQuestions[0].question_pt, 'Pergunta revista para teste');
+  assert.equal(updatedSession.comparisons.length, 78);
+  assert.equal((await pool.query('SELECT question_pt FROM profile_questions WHERE id=$1', [ongoing.profileQuestions[0].id])).rows[0].question_pt, originalQuestion);
+  await post('profile-answers', { sessionId: ongoing.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' });
+  await post('profile-answers', { sessionId: updatedSession.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' }, 400);
+  const firstChoice = simulateGame(() => 'right').choices[0];
+  await post('choices', { sessionId: ongoing.sessionId, comparisonId: firstChoice.comparison_id,
+    roundNumber: firstChoice.round_number, category: firstChoice.category, leftSnippetId: firstChoice.left_snippet_id,
+    rightSnippetId: firstChoice.right_snippet_id, selectedSnippetId: firstChoice.selected_snippet_id });
+  assert.equal((await pool.query('SELECT count(*)::int AS count FROM datasets WHERE active')).rows[0].count, 1);
+  assert.equal((await (await fetch(`${base}/api/health`)).json()).datasetVersion, 'integration-published');
+  console.log('Dataset management: protected access, draft validation, stale revisions, activation, immutable history and ongoing sessions verified.');
   const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });
   assert.equal(logout.status, 200);
   await getResults("", 401);

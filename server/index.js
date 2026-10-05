@@ -1,5 +1,6 @@
 import "dotenv/config";
 import pg from "pg";
+import { createManagementSchema } from "./dataset-management.js";
 import { createApp } from "./app.js";
 
 const pool = new pg.Pool({
@@ -10,7 +11,7 @@ const pool = new pg.Pool({
 });
 
 const port = process.env.PORT || 50820;
-pool.query("SELECT 1").then(() => {
+createManagementSchema(pool).then(() => {
   createApp(pool).listen(port, () => console.log(`API running on http://localhost:${port}`));
 }).catch((error) => {
   console.error("Failed to initialize database:", error.code || error.name);

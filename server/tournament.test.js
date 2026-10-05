@@ -4,25 +4,25 @@ import { apiComparisons, simulateGame } from "./test-fixtures.js";
 import { replayTournament, buildFinalResult } from "./tournament.js";
 import { DATASET, profileQuestions, snippets, comparisons } from "./seed-data.js";
 
-test("as 512 sequências de escolhas completam 9 pares e mantêm o contexto", () => {
+test("as 256 sequências de escolhas completam 8 pares e mantêm o contexto", () => {
   const results = new Set();
-  for (let mask = 0; mask < 512; mask += 1) {
+  for (let mask = 0; mask < 256; mask += 1) {
     const game = simulateGame((index) => (mask >> index) & 1 ? "right" : "left");
     const replay = replayTournament(apiComparisons, game.choices);
     assert.equal(replay.complete, true);
-    assert.equal(game.choices.length, 9);
+    assert.equal(game.choices.length, 8);
     assert.deepEqual(replay.selectedStyles, game.selectedStyles);
     results.add(JSON.stringify(replay.selectedStyles));
   }
-  assert.equal(results.size, 64);
+  assert.equal(results.size, 48);
 });
 
-test("intercala o perfil entre categorias e mantém 14 passos", () => {
+test("intercala o perfil entre categorias e mantém 13 passos", () => {
   const { flow } = simulateGame();
   assert.deepEqual(flow.map((item) => item.type === "profile" ? "profile" : item.category), [
     "variables", "variables", "variables", "profile", "profile",
     "loops", "loops", "loops", "profile", "profile",
-    "conditionals", "conditionals", "conditionals", "profile",
+    "conditionals", "conditionals", "profile",
   ]);
 });
 
@@ -30,7 +30,7 @@ test("saltar não cria preferências confirmadas", () => {
   const replay = replayTournament(apiComparisons, simulateGame(() => "skip").choices);
   assert.deepEqual(replay.selectedStyles, { variables: null, loops: null, conditionals: null });
   assert.equal(Object.keys(replay.carriedStyles).length, 3);
-  for (let skipped = 0; skipped < 9; skipped += 1) {
+  for (let skipped = 0; skipped < 8; skipped += 1) {
     const result = replayTournament(apiComparisons, simulateGame((index) => index === skipped ? "skip" : "right").choices);
     assert.equal(result.categoryResults.filter((item) => item.status === "incomplete").length, 1);
   }
@@ -58,4 +58,16 @@ test("resultado final exige todas as respostas e é reconstruído a partir dos p
 
 test("todos os IDs pertencem à versão do dataset", () => {
   for (const item of [...snippets, ...comparisons, ...profileQuestions]) assert.ok(item.id.startsWith(`${DATASET.id}:`));
+});
+
+test('ordens aleatórias e saltos mantêm sempre a composição válida', () => {
+  for (let seed = 1; seed <= 200; seed++) {
+    let state = seed;
+    const random = () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 4294967296; };
+    const game = simulateGame(() => ['left', 'right', 'skip'][Math.floor(random() * 3)], random);
+    const result = replayTournament(apiComparisons, game.choices);
+    assert.equal(result.complete, true);
+    assert.equal(game.choices.length, 8);
+    assert.deepEqual(result.finalSnippet.inherited_styles, { variables: result.carriedStyles.variables, loops: result.carriedStyles.loops });
+  }
 });

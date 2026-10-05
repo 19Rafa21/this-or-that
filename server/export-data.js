@@ -23,6 +23,7 @@ try {
       await mkdir(directory, { recursive: true, mode: 0o700 });
       if (backup) {
         const snapshot = { format: "this-or-that-data-v1", createdAt: new Date().toISOString(), tables: {} };
+        if ((await client.query("SELECT to_regclass('dataset_draft') AS name")).rows[0].name) tables.push('dataset_draft');
         for (const table of tables) snapshot.tables[table] = (await client.query(`SELECT * FROM ${table}`)).rows;
         await writeFile(resolve(directory, "snapshot.json"), JSON.stringify(snapshot, null, 2), { mode: 0o600, flag: "wx" });
         console.log("Data snapshot saved. Keep schema.js with this file; this is not a pg_dump backup.");

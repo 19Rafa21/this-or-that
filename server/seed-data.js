@@ -1,24 +1,24 @@
 export const DATASET = {
-  id: "dataset-2026-06",
-  version: "2026.6",
+  id: "dataset-2026-07",
+  version: "2026.7",
   description:
-    "Cumulative syntax study with a focused five-question profile including age bands.",
+    "Cumulative syntax study with inherited block delimiters, equivalent conditions and five profile questions.",
 };
 
 export const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
 
 const intentions = {
   variables: {
-    pt: "Declarar uma variável inteira mutável com o valor inicial zero.",
-    en: "Declare a mutable integer variable with an initial value of zero.",
+    pt: "Inicializar as variáveis inteiras i e total com o valor zero.",
+    en: "Initialize the integer variables i and total to zero.",
   },
   loops: {
-    pt: "Percorrer os valores de zero até n usando um ciclo.",
-    en: "Iterate over the values from zero to n using a loop.",
+    pt: "Percorrer os valores de 0 a 9, aumentando i uma unidade de cada vez.",
+    en: "Iterate over the values 0 to 9, increasing i by one each time.",
   },
   conditionals: {
-    pt: "Somar a total os valores pares encontrados durante o ciclo.",
-    en: "Add the even values found during the loop to total.",
+    pt: "Somar a total os valores pares de 0 a 9. Mantém-se o tipo de bloco escolhido no ciclo; compara apenas a escrita da condição.",
+    en: "Add the even values from 0 to 9 to total. The block style chosen for the loop is preserved; compare only how the condition is written.",
   },
 };
 
@@ -52,49 +52,62 @@ const styles = [
     id: "c",
     style: "c_style",
     label: "C",
-    declaration: "int i = 0;",
+    declaration: "int i = 0;\nint total = 0;",
     renderLoop(body = "") {
       const content = body ? `${indent(body, 2)}\n` : "";
-      return `while (i < n) {\n${content}  i++;\n}`;
+      return `while (i < 10) {\n${content}  i++;\n}`;
     },
-    conditional: "if (i % 2 == 0) {\n  total += i;\n}",
   },
   {
     id: "python",
     style: "python_style",
     label: "Python",
-    declaration: "i = 0",
+    declaration: "i = 0\ntotal = 0",
     renderLoop(body = "") {
       const content = body ? `${indent(body, 4)}\n` : "";
-      return `while i < n:\n${content}    i += 1`;
+      return `while i < 10:\n${content}    i += 1`;
     },
-    conditional: "if i % 2 == 0:\n    total += i",
   },
   {
     id: "java",
     style: "java_style",
     label: "Java",
-    declaration: "var i = 0;",
+    declaration: "var i = 0;\nvar total = 0;",
     renderLoop(body = "") {
       const content = body ? `\n${indent(body, 2)}\n` : "\n";
-      return `for (; i < n; i++) {${content}}`;
+      return `for (; i < 10; i++) {${content}}`;
     },
-    conditional:
-      "if (Math.floorMod(i, 2) == 0) {\n  total += i;\n}",
   },
   {
     id: "pascal",
     style: "pascal_style",
     label: "Pascal",
-    declaration: "i: Integer := 0;",
+    declaration: "i: Integer := 0;\ntotal: Integer := 0;",
     renderLoop(body = "") {
       const content = body ? `${indent(body, 2)}\n` : "";
-      return `while i < n do\nbegin\n${content}  i := i + 1;\nend;`;
+      return `while i < 10 do\nbegin\n${content}  i := i + 1;\nend;`;
     },
-    conditional:
-      "if i mod 2 = 0 then\nbegin\n  total := total + i;\nend;",
   },
 ];
+
+// These alternatives name syntax features, not languages: C and Java share
+// the parenthesized condition. Inventing a library call to distinguish them
+// would change what the comparison measures.
+const conditionalStyles = [
+  { id: "parenthesized", style: "condition_parenthesized", label: "if (…)", header: (condition) => `if (${condition})` },
+  { id: "plain", style: "condition_plain", label: "if …", header: (condition) => `if ${condition}` },
+  { id: "then", style: "condition_then", label: "if … then", header: (condition) => `if ${condition} then` },
+];
+
+function renderConditional(loopStyle, conditionalStyle) {
+  // The arithmetic and assignment are identical within each comparison;
+  // only the conditional header varies. Delimiters inherit the loop choice.
+  const pascal = loopStyle.id === "pascal";
+  const header = conditionalStyle.header(pascal ? "i mod 2 = 0" : "i % 2 == 0");
+  if (pascal) return `${header}\nbegin\n  total := total + i;\nend;`;
+  if (loopStyle.id === "python") return `${header}:\n    total += i`;
+  return `${header} {\n  total += i;\n}`;
+}
 
 function indent(code, spaces) {
   const padding = " ".repeat(spaces);
@@ -133,20 +146,20 @@ const loopSnippets = styles.flatMap((declarationStyle) =>
 
 const conditionalSnippets = styles.flatMap((declarationStyle) =>
   styles.flatMap((loopStyle) =>
-    styles.map((conditionalStyle) =>
+    conditionalStyles.map((conditionalStyle) =>
       makeSnippet({
         id: `conditionals-${declarationStyle.id}-declaration-${loopStyle.id}-loop-${conditionalStyle.id}-style`,
         category: "conditionals",
         variant: `${declarationStyle.id}_declaration__${loopStyle.id}_loop__${conditionalStyle.id}_conditional`,
         style: conditionalStyle.style,
-        sourceLanguage: conditionalStyle.id,
+        sourceLanguage: "experimental",
         inheritedStyles: {
           variables: declarationStyle.style,
           loops: loopStyle.style,
         },
         label: conditionalStyle.label,
         code: `${declarationStyle.declaration}\n\n${loopStyle.renderLoop(
-          conditionalStyle.conditional
+          renderConditional(loopStyle, conditionalStyle)
         )}`,
       })
     )
@@ -166,7 +179,7 @@ function comparison(id, category, snippetAId, snippetBId) {
     category,
     snippetAId,
     snippetBId,
-    validationNotes: "Manually curated experimental syntax comparison.",
+    validationNotes: "Experimental syntax comparison; inherited declarations and loop retained. Conditional pairs differ only in the condition header, with block delimiters inherited from the loop.",
   };
 }
 
@@ -177,7 +190,7 @@ function buildPairComparisons(items, category, context) {
     for (let right = left + 1; right < items.length; right += 1) {
       result.push(
         comparison(
-          `${category}-${context}-${items[left].sourceLanguage}-vs-${items[right].sourceLanguage}`,
+          `${category}-${context}-${items[left].style}-vs-${items[right].style}`,
           category,
           items[left].id,
           items[right].id

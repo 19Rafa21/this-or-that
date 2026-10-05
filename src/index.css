@@ -1102,3 +1102,18 @@ a:focus-visible {
 
 .conclusion-actions { width: 100%; }
 .primary-button.general-results-button { width: min(380px, 100%); min-width: 0; min-height: 64px; height: auto; padding: 16px; font-size: clamp(1rem, 4vw, 1.3rem); line-height: 1.4; }
+
+.dataset-manager { margin: 1.5rem 0; padding: 1.25rem; background: #fff; color: #241638; border-radius: 16px; }
+.dataset-manager summary { cursor: pointer; font-weight: 650; padding: .65rem 0; overflow-wrap: anywhere; }
+.dataset-manager details { border-top: 1px solid #ded5ea; margin-top: .6rem; }
+.dataset-manager label { display: flex; flex-direction: column; gap: .4rem; margin: .8rem 0; }
+.dataset-manager input, .dataset-manager textarea { box-sizing: border-box; width: 100%; color: #241638; background: #fff; border: 1px solid #9885ad; border-radius: 6px; padding: .6rem; font: inherit; }
+.dataset-manager textarea { min-height: 85px; resize: vertical; }
+.dataset-manager .dataset-code { min-height: 220px; font-family: monospace; }
+.dataset-manager pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f3eff8; padding: 1rem; }
+.dataset-manager button { padding: .7rem 1rem; margin: .7rem .7rem .2rem 0; border-radius: 8px; background: #672da0; color: #fff; border: 0; cursor: pointer; }
+.dataset-manager button:disabled { opacity: .5; cursor: default; }
+.dataset-editor { min-width: 0; border: 1px solid #ded5ea; border-radius: 8px; padding: 1rem; }
+.dataset-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
+.dataset-manager .dataset-confirm { flex-direction: row; align-items: flex-start; }
+.dataset-confirm input { width: auto; flex-shrink: 0; margin-top: .3rem; }

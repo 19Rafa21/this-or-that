@@ -1,3 +1,4 @@
+import { createManagementSchema } from "./dataset-management.js";
 export async function createSchema(client) {
   await client.query(`
     CREATE TABLE IF NOT EXISTS datasets (
@@ -150,10 +151,13 @@ export async function createSchema(client) {
       CHECK (jsonb_typeof(result_json) = 'object')
     );
   `);
+  await createManagementSchema(client);
 }
 
 export async function dropProjectTables(client) {
   await client.query(`
+    DROP TABLE IF EXISTS dataset_draft CASCADE;
+    DROP SEQUENCE IF EXISTS dataset_draft_revision;
     DROP TABLE IF EXISTS final_results CASCADE;
     DROP TABLE IF EXISTS choices CASCADE;
     DROP TABLE IF EXISTS profile_answers CASCADE;

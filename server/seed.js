@@ -105,6 +105,9 @@ function validateSeedData() {
 }
 
 async function insertDataset(client) {
+  await client.query('LOCK TABLE datasets IN SHARE ROW EXCLUSIVE MODE');
+  const managed = (await client.query('SELECT id FROM datasets WHERE active AND activated_at IS NOT NULL')).rows[0];
+  if (managed && managed.id !== DATASET.id) throw new Error('The active dataset is managed in admin. Use admin to prepare updates; seeding would replace the active study.');
   const hash = createHash("sha256").update(JSON.stringify({ DATASET, CATEGORY_ORDER, snippets, comparisons, profileQuestions })).digest("hex");
   const existing = await client.query("SELECT seed_hash FROM datasets WHERE id = $1", [DATASET.id]);
   if (existing.rowCount && existing.rows[0].seed_hash !== hash) {
@@ -113,12 +116,13 @@ async function insertDataset(client) {
   await client.query("UPDATE datasets SET active = false WHERE active = true");
   await client.query(
     `
-      INSERT INTO datasets (id, version, description, active, seed_hash)
-      VALUES ($1, $2, $3, true, $4)
+      INSERT INTO datasets (id, version, description, active, seed_hash, activated_at)
+      VALUES ($1, $2, $3, true, $4, now())
       ON CONFLICT (id) DO UPDATE SET
         version = EXCLUDED.version,
         description = EXCLUDED.description,
-        active = true
+        active = true,
+        activated_at = COALESCE(datasets.activated_at, now())
     `,
     [DATASET.id, DATASET.version, DATASET.description, hash]
   );
@@ -150,7 +154,8 @@ async function insertSnippets(client) {
           code = EXCLUDED.code,
           intention_pt = EXCLUDED.intention_pt,
           intention_en = EXCLUDED.intention_en,
-          active = true
+          active = true,
+        activated_at = COALESCE(datasets.activated_at, now())
       `,
       [
         snippet.id,
@@ -189,7 +194,8 @@ async function insertComparisons(client) {
           snippet_a_id = EXCLUDED.snippet_a_id,
           snippet_b_id = EXCLUDED.snippet_b_id,
           validation_notes = EXCLUDED.validation_notes,
-          active = true
+          active = true,
+        activated_at = COALESCE(datasets.activated_at, now())
       `,
       [
         comparison.id,
@@ -224,7 +230,8 @@ async function insertProfileQuestions(client) {
           type = EXCLUDED.type,
           options = EXCLUDED.options,
           display_order = EXCLUDED.display_order,
-          active = true
+          active = true,
+        activated_at = COALESCE(datasets.activated_at, now())
       `,
       [
         question.id,

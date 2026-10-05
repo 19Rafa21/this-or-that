@@ -33,7 +33,7 @@ export default {
     profileNote: "Uma resposta por sessão. Saltos e perguntas ainda não respondidas aparecem separados.",
     skipNote: "Percentagem de saltos entre as comparações respondidas de cada categoria.",
     categories: { variables: "Declaração de variáveis", loops: "Ciclos", conditionals: "Condicionais" },
-    styles: { c_style: "Estilo C", python_style: "Estilo Python", java_style: "Estilo Java", pascal_style: "Estilo Pascal" },
+    styles: { condition_parenthesized: "Condição entre parênteses", condition_plain: "Condição sem parênteses", condition_then: "Condição com then", c_style: "Estilo C", python_style: "Estilo Python", java_style: "Estilo Java", pascal_style: "Estilo Pascal" },
     exportError: "Não foi possível guardar a imagem.",
   },
   en: {
@@ -70,7 +70,7 @@ export default {
     profileNote: "One answer per session. Skipped and unanswered questions are shown separately.",
     skipNote: "Skipped comparisons as a percentage of submitted comparisons in each category.",
     categories: { variables: "Variable declarations", loops: "Loops", conditionals: "Conditionals" },
-    styles: { c_style: "C style", python_style: "Python style", java_style: "Java style", pascal_style: "Pascal style" },
+    styles: { condition_parenthesized: "Parenthesized condition", condition_plain: "Unparenthesized condition", condition_then: "Condition with then", c_style: "C style", python_style: "Python style", java_style: "Java style", pascal_style: "Pascal style" },
     exportError: "The image could not be saved.",
   },
 };

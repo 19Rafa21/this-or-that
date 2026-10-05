@@ -17,7 +17,7 @@ export function simulateGame(decision = () => "left", random = () => 0.999) {
   for (let index = 0; index < flow.length; index += 1) {
     const step = flow[index];
     if (step.type !== "code") continue;
-    const side = decision(choices.length);
+    const side = decision(choices.length, step);
     const selected = side === "right" ? step.rightSnippet : step.leftSnippet;
     choices.push({ comparison_id: step.id, round_number: step.comparisonNumber, category: step.category,
       left_snippet_id: step.leftSnippet.id, right_snippet_id: step.rightSnippet.id,

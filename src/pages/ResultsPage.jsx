@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import DatasetManager from "../components/DatasetManager.jsx";
 import Layout from "../components/Layout.jsx";
 import ResultsChart from "../components/ResultsChart.jsx";
 import resultsTranslations from "../i18n/resultsTranslations.js";
@@ -89,6 +90,7 @@ export default function ResultsPage({ language, setLanguage }) {
         <label>{text.password}<input name="password" type="password" autoComplete="current-password" required maxLength={128} disabled={busy} /></label>
         <button type="submit" disabled={busy}>{busy ? text.loading : text.login}</button>
       </form> : <>
+        <DatasetManager token={auth.token} language={language} onActivated={(datasetId) => { const next = { from: "", to: "", status: "all", datasetId, profile: {} }; setFilters(next); load(auth, next); }} />
         <form className="results-filters" onSubmit={apply}>
           <label className="results-dataset-filter">{text.dataset}<select disabled={busy} value={filters.datasetId} onChange={(event) => setFilters({ ...filters, datasetId: event.target.value, profile: {} })}>
             {!datasets.length && <option value="">{text.defaultDataset}</option>}

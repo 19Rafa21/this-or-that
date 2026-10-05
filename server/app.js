@@ -3,7 +3,7 @@ import { createDatasetLoader } from "./dataset-cache.js";
 import { timedDatabase, timingHeader } from "./request-timing.js";
 import cors from "cors";
 import { randomBytes } from "node:crypto";
-import { DATASET } from "./seed-data.js";
+import { registerDatasetManagement } from "./dataset-management.js";
 import { InputError, replayTournament, buildFinalResult } from "./tournament.js";
 import { authorizeExport, exportQueries, rowsToCsv } from "./exports.js";
 import { exportXlsx } from "./export-xlsx.js";
@@ -15,6 +15,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   const loadDataset = createDatasetLoader();
   const origins = process.env.ALLOWED_ORIGINS?.split(",").map((value) => value.trim());
   app.use(cors(origins ? { origin: origins } : {}));
+  app.use("/api/admin/datasets", adminAuth.authorize, express.json({ limit: "2mb" }));
   app.use(express.json({ limit: "100kb" }));
   app.disable("x-powered-by");
 
@@ -31,14 +32,13 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   };
   const sessionRoute = (handler) => route(async (req, res, database) => {
     if (typeof req.body?.sessionId !== "string") throw new InputError("sessionId is required");
-    const content = await loadDataset(database, DATASET.id);
     const client = await database.connect();
     try {
       await client.query("BEGIN");
       const session = (await client.query(`SELECT s.*, d.version FROM game_sessions s
         JOIN datasets d ON d.id = s.dataset_id WHERE s.id = $1 FOR UPDATE OF s`, [req.body.sessionId])).rows[0];
       if (!session) throw new InputError("Unknown session", 404);
-      if (session.dataset_id !== DATASET.id) throw new InputError("Please start a new session with the current prototype", 409);
+      const content = await loadDataset(database, session.dataset_id);
       const result = await handler(req.body, client, session, content);
       await client.query("COMMIT");
       res.status(201).json(result);
@@ -47,6 +47,8 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
       throw error;
     } finally { client.release(); }
   });
+
+  registerDatasetManagement(app, pool, adminAuth.authorize, route);
 
   app.post("/api/admin/login", route(adminAuth.login));
   app.post("/api/admin/logout", adminAuth.logout);
@@ -61,15 +63,15 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   }));
 
   app.get("/api/health", route(async (_req, res, database) => {
-    await database.query("SELECT 1");
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: DATASET.version, resultsVersion: 4 });
+    const active = (await database.query("SELECT version FROM datasets WHERE active")).rows[0];
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 1 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {
     const language = req.body?.language || "pt";
     if (!["pt", "en"].includes(language)) throw new InputError("Invalid interface language");
     const dataset = (await database.query("SELECT id, version FROM datasets WHERE active")).rows[0];
-    if (dataset?.id !== DATASET.id) throw new InputError("The current dataset must be seeded before starting the game", 503);
+    if (!dataset) throw new InputError("The current dataset must be seeded before starting the game", 503);
     const content = await loadDataset(database, dataset.id);
     replayTournament(content.comparisons, []);
     const id = randomBytes(16).toString("hex");

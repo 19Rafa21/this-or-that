@@ -82,3 +82,10 @@ export function getStudyResults(token, filters) {
 export function getPublicResults() {
   return request("/api/public/results");
 }
+
+export function manageDataset(token, action, body) {
+  return request(`/api/admin/datasets${action ? `/${action}` : ''}`, {
+    method: action ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}` },
+    ...(action ? { body: JSON.stringify(body || {}) } : {}),
+  });
+}
