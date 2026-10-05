@@ -154,8 +154,7 @@ async function insertSnippets(client) {
           code = EXCLUDED.code,
           intention_pt = EXCLUDED.intention_pt,
           intention_en = EXCLUDED.intention_en,
-          active = true,
-        activated_at = COALESCE(datasets.activated_at, now())
+          active = true
       `,
       [
         snippet.id,
@@ -194,8 +193,7 @@ async function insertComparisons(client) {
           snippet_a_id = EXCLUDED.snippet_a_id,
           snippet_b_id = EXCLUDED.snippet_b_id,
           validation_notes = EXCLUDED.validation_notes,
-          active = true,
-        activated_at = COALESCE(datasets.activated_at, now())
+          active = true
       `,
       [
         comparison.id,
@@ -230,8 +228,7 @@ async function insertProfileQuestions(client) {
           type = EXCLUDED.type,
           options = EXCLUDED.options,
           display_order = EXCLUDED.display_order,
-          active = true,
-        activated_at = COALESCE(datasets.activated_at, now())
+          active = true
       `,
       [
         question.id,
