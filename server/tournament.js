@@ -1,4 +1,5 @@
-export const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
+import { getCategoryOrder, EXTENDED_CATEGORY_ORDER } from "../src/game/categoryOrder.js";
+export const CATEGORY_ORDER = EXTENDED_CATEGORY_ORDER;
 
 export class InputError extends Error {
   constructor(message, status = 400) {
@@ -13,8 +14,7 @@ function check(condition, message) {
 
 function sameContext(snippet, styles) {
   const context = snippet.inherited_styles || {};
-  return Object.keys(context).length === Object.keys(styles).length &&
-    Object.entries(styles).every(([key, value]) => context[key] === value);
+  return Object.entries(context).every(([key, value]) => styles[key] === value);
 }
 
 // Skipping carries the left snippet for composition, not as a preference.
@@ -25,7 +25,7 @@ export function replayTournament(comparisons, choices) {
   const categoryResults = [];
   let offset = 0;
   let finalSnippet = null;
-  for (const category of CATEGORY_ORDER) {
+  for (const category of getCategoryOrder(comparisons)) {
     const available = new Map();
     for (const comparison of comparisons.filter((item) => item.category === category)) {
       for (const snippet of [comparison.snippet_a, comparison.snippet_b]) {
@@ -75,12 +75,16 @@ export function buildFinalResult(comparisons, choices, profileAnswers, questions
   const replay = replayTournament(comparisons, choices);
   check(replay.complete, "The tournament is not complete");
   check(questions.every((question) => profileAnswers.some((answer) => answer.question_id === question.id)), "Profile questions must be answered or explicitly skipped");
+  const examples = comparisons.some((c) => c.category === 'blocks') ? replay.categoryResults.map((category) => {
+    const snippet = comparisons.flatMap((c) => [c.snippet_a, c.snippet_b]).find((s) => s.id === category.carriedSnippetId);
+    return { category: category.category, code: snippet.code, status: category.status };
+  }) : null;
   const hasSkippedComparisons = choices.some((choice) => choice.skipped);
   return {
     protocolVersion: 4, datasetId: dataset.id, datasetVersion: dataset.version,
     selectedStyles: replay.selectedStyles, carriedStyles: replay.carriedStyles,
     categoryResults: replay.categoryResults, hasSkippedComparisons,
-    winner: { language: "text", code: replay.finalSnippet.code, selectedStyles: replay.selectedStyles,
+    winner: { language: "text", code: examples ? examples.map((e) => `${e.category}\n${e.code}`).join("\n\n") : replay.finalSnippet.code, ...(examples ? { examples } : {}), selectedStyles: replay.selectedStyles,
       carriedStyles: replay.carriedStyles, hasSkippedComparisons },
     answers: choices, profileAnswers,
   };

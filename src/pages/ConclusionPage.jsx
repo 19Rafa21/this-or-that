@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
 import PrimaryButton from "../components/PrimaryButton.jsx";
+import resultsTranslations from "../i18n/resultsTranslations.js";
 import translations from "../i18n/translations.js";
 import { readStoredWinner } from "../game/gameUtils.js";
 
@@ -61,19 +62,23 @@ export default function ConclusionPage({ language, setLanguage }) {
         <div className="trophy-shape" aria-hidden="true">🏆</div>
 
         <h1 className="main-title conclusion-title">{text.title}</h1>
-        <h2 className="conclusion-subtitle">{text.subtitle}</h2>
+        <h2 className="conclusion-subtitle">{finalWinner?.examples ? text.examplesSubtitle : text.subtitle}</h2>
 
         <article className="conclusion-card conclusion-card-large">
           <p>{text.result1}</p>
-          <p>{text.experimentalNote}</p>
+          <p>{finalWinner?.examples ? text.examplesNote : text.experimentalNote}</p>
           {finalWinner?.hasSkippedComparisons && <p role="status">{text.skippedNote}</p>}
 
           <h3 className="final-code-title">
-            {text.finalCodeTitle}
+            {finalWinner?.examples ? text.examplesTitle : text.finalCodeTitle}
           </h3>
 
           <div className="final-code-block">
-            {finalWinner ? (
+            {finalWinner?.examples ? finalWinner.examples.map((example) => <section key={example.category}>
+              <h4>{resultsTranslations[language].categories[example.category]}</h4>
+              {example.status === 'incomplete' && <p>{resultsTranslations[language].incomplete}</p>}
+              <pre className="comparison-code"><code>{example.code}</code></pre>
+            </section>) : finalWinner ? (
               <pre className="comparison-code"><code>{finalWinner.code}</code></pre>
             ) : (
               <pre>

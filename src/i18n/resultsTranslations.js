@@ -32,8 +32,8 @@ export default {
     finalNote: "Uma preferência final por categoria e jogo concluído. Categorias com saltos aparecem sem preferência confirmada.",
     profileNote: "Uma resposta por sessão. Saltos e perguntas ainda não respondidas aparecem separados.",
     skipNote: "Percentagem de saltos entre as comparações respondidas de cada categoria.",
-    categories: { variables: "Declaração de variáveis", loops: "Ciclos", conditionals: "Condicionais" },
-    styles: { condition_parenthesized: "Condição entre parênteses", condition_plain: "Condição sem parênteses", condition_then: "Condição com then", c_style: "Estilo C", python_style: "Estilo Python", java_style: "Estilo Java", pascal_style: "Estilo Pascal" },
+    categories: { variables: "Declaração de variáveis", blocks: "Delimitação de blocos", assignments: "Atribuição e atualização", logical: "Operadores lógicos", functions: "Declaração de funções", loops: "Ciclos", conditionals: "Condicionais" },
+    styles: { block_braces: "Chavetas", block_indent: "Indentação", block_begin_end: "begin/end", loop_while: "while", loop_for_counter: "for com contador", loop_for_range: "for por intervalo", assignment_explicit: "Atribuição com =", assignment_compound: "Atualização com +=", assignment_colon: "Atribuição com :=", logic_symbols: "Símbolos (&&, !)", logic_words: "Palavras (and, not)", function_function: "function", function_def: "def", function_fun: "fun", condition_parenthesized: "Condição entre parênteses", condition_plain: "Condição sem parênteses", condition_then: "Condição com then", c_style: "Estilo C", python_style: "Estilo Python", java_style: "Estilo Java", pascal_style: "Estilo Pascal" },
     exportError: "Não foi possível guardar a imagem.",
   },
   en: {
@@ -69,8 +69,8 @@ export default {
     finalNote: "One final preference per category and completed game. Categories with skipped comparisons have no confirmed preference.",
     profileNote: "One answer per session. Skipped and unanswered questions are shown separately.",
     skipNote: "Skipped comparisons as a percentage of submitted comparisons in each category.",
-    categories: { variables: "Variable declarations", loops: "Loops", conditionals: "Conditionals" },
-    styles: { condition_parenthesized: "Parenthesized condition", condition_plain: "Unparenthesized condition", condition_then: "Condition with then", c_style: "C style", python_style: "Python style", java_style: "Java style", pascal_style: "Pascal style" },
+    categories: { variables: "Variable declarations", blocks: "Block delimiters", assignments: "Assignment and updates", logical: "Logical operators", functions: "Function declarations", loops: "Loops", conditionals: "Conditionals" },
+    styles: { block_braces: "Braces", block_indent: "Indentation", block_begin_end: "begin/end", loop_while: "while", loop_for_counter: "Counter for", loop_for_range: "Range for", assignment_explicit: "Assignment with =", assignment_compound: "Update with +=", assignment_colon: "Assignment with :=", logic_symbols: "Symbols (&&, !)", logic_words: "Words (and, not)", function_function: "function", function_def: "def", function_fun: "fun", condition_parenthesized: "Parenthesized condition", condition_plain: "Unparenthesized condition", condition_then: "Condition with then", c_style: "C style", python_style: "Python style", java_style: "Java style", pascal_style: "Pascal style" },
     exportError: "The image could not be saved.",
   },
 };

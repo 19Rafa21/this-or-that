@@ -19,7 +19,7 @@ import {
   saveProfileAnswer,
 } from "../api.js";
 
-const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
+import { getCategoryOrder } from "../game/categoryOrder.js";
 
 let pendingGameInitialization = null;
 
@@ -65,16 +65,17 @@ export default function GamePage({ language, setLanguage }) {
           pendingGameInitialization = null;
         }
 
+        const categoryOrder = getCategoryOrder(comparisonsFromApi);
         const initialState = {
           stateVersion: GAME_STATE_VERSION,
-          flow: buildInitialFlow(comparisonsFromApi, questionsFromApi, CATEGORY_ORDER),
+          flow: buildInitialFlow(comparisonsFromApi, questionsFromApi, categoryOrder),
           comparisons: comparisonsFromApi,
           selectedStyles: {},
           categoryWinners: [],
           plannedProfileQuestions: questionsFromApi.length,
           plannedCodeQuestions: countPlannedCodeQuestions(
             comparisonsFromApi,
-            CATEGORY_ORDER
+            categoryOrder
           ),
           currentIndex: 0,
           answers: [],
@@ -92,14 +93,14 @@ export default function GamePage({ language, setLanguage }) {
       } catch (err) {
         console.error(err);
         pendingGameInitialization = null;
-        setError(text.loadError);
+        setError(err.status === 426 ? text.updateRequired : text.loadError);
       } finally {
         setIsLoading(false);
       }
     }
 
     loadGameData();
-  }, [language, text.loadError]);
+  }, [language, text.loadError, text.updateRequired]);
 
   if (isLoading) {
     return (
@@ -228,7 +229,7 @@ export default function GamePage({ language, setLanguage }) {
         currentIndex: gameState.currentIndex,
         selectedSnippet,
         comparisons: gameState.comparisons,
-        categoryOrder: CATEGORY_ORDER,
+        categoryOrder: getCategoryOrder(gameState.comparisons),
         selectedStyles: gameState.selectedStyles,
         nextRoundNumber: gameState.answers.length + 2,
       });
@@ -355,7 +356,7 @@ export default function GamePage({ language, setLanguage }) {
           <>
             <h2 className="game-question">{dynamicQuestion}</h2>
             <p className="game-context">
-              {currentStep.leftSnippet[`intention_${language}`]} {text.contextNote}
+              {currentStep.leftSnippet[`intention_${language}`]} {getCategoryOrder(gameState.comparisons).length > 3 ? text.independentNote : text.contextNote}
             </p>
 
             <div className="code-grid">

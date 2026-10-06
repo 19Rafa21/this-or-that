@@ -107,7 +107,7 @@ function validateSeedData() {
 async function insertDataset(client) {
   await client.query('LOCK TABLE datasets IN SHARE ROW EXCLUSIVE MODE');
   const managed = (await client.query('SELECT id FROM datasets WHERE active AND activated_at IS NOT NULL')).rows[0];
-  if (managed && managed.id !== DATASET.id) throw new Error('The active dataset is managed in admin. Use admin to prepare updates; seeding would replace the active study.');
+  if (managed && managed.id !== DATASET.id && !process.argv.includes(`--expected-active=${managed.id}`)) throw new Error('The active dataset is managed in admin. Use admin to prepare updates; seeding would replace the active study.');
   const hash = createHash("sha256").update(JSON.stringify({ DATASET, CATEGORY_ORDER, snippets, comparisons, profileQuestions })).digest("hex");
   const existing = await client.query("SELECT seed_hash FROM datasets WHERE id = $1", [DATASET.id]);
   if (existing.rowCount && existing.rows[0].seed_hash !== hash) {

@@ -41,14 +41,17 @@ try {
   await once(server, "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   const post = async (path, body, status = 201) => {
-    const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(path === "sessions" ? { ...body, clientStudyVersion: 2 } : body) });
     const result = await response.json();
     assert.equal(response.status, status, `${path}: ${JSON.stringify(result)}`);
     return result;
   };
+  const oldClient = await fetch(`${base}/api/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: 'pt' }) });
+  assert.equal(oldClient.status, 426);
+  assert.equal((await pool.query('SELECT count(*)::int AS n FROM game_sessions')).rows[0].n, 0);
   for (const skip of [false, true]) {
     const session = await post("sessions", { language: skip ? "en" : "pt" });
-    assert.equal(session.comparisons.length, 78);
+    assert.equal(session.comparisons.length, 40);
     assert.equal(session.profileQuestions.length, 5);
     await post("final-results", { sessionId: session.sessionId, result: { fake: true } }, 400);
     const { choices } = simulateGame(() => skip ? "skip" : "right");
@@ -72,11 +75,12 @@ try {
     }
     const final = await post("final-results", { sessionId: session.sessionId, result: { winner: { code: "forged" } } });
     assert.notEqual(final.result.winner.code, "forged");
+    assert.equal(final.result.winner.examples.length, 7);
     assert.equal(final.result.hasSkippedComparisons, skip);
     if (skip) assert.ok(Object.values(final.result.selectedStyles).every((value) => value === null));
     const retry = await post("final-results", { sessionId: session.sessionId });
     assert.deepEqual(retry, final);
-    console.log(`HTTP game (${skip ? "all skipped" : "all selected"}): 8 choices, 5 profile answers, validated result, safe retries`);
+    console.log(`HTTP game (${skip ? "all skipped" : "all selected"}): 14 choices, 5 profile answers, validated result, safe retries`);
   }
   const denied = await fetch(`${base}/api/export/sessions.csv`);
   assert.equal(denied.status, 401);
@@ -88,7 +92,7 @@ try {
     assert.ok(csv.includes(DATASET.version));
   }
   const counts = (await pool.query("SELECT (SELECT count(*) FROM choices) AS choices, (SELECT count(*) FROM final_results) AS results")).rows[0];
-  assert.equal(Number(counts.choices), 16);
+  assert.equal(Number(counts.choices), 28);
   assert.equal(Number(counts.results), 2);
   // Test analytics only against this isolated schema; never create real study responses.
   await pool.query("UPDATE game_sessions SET created_at = '2026-09-25T12:00:00Z', finished_at = '2026-09-25T12:10:00Z'");
@@ -112,12 +116,12 @@ try {
     assert.equal(question.counts.skipped, 1);
     assert.equal(Object.values(question.counts).reduce((sum, count) => sum + count, 0), 2);
   }
-  assert.equal(results.preferences.reduce((sum, row) => sum + row.shown, 0), 32);
-  assert.equal(results.preferences.reduce((sum, row) => sum + row.decided, 0), 16);
-  assert.equal(results.preferences.reduce((sum, row) => sum + row.wins, 0), 8);
-  assert.equal(results.skips.reduce((sum, row) => sum + row.skipped, 0), 8);
-  assert.equal(results.finals.filter((row) => row.style === null).length, 3);
-  assert.equal(results.finals.reduce((sum, row) => sum + row.total, 0), 6);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.shown, 0), 56);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.decided, 0), 28);
+  assert.equal(results.preferences.reduce((sum, row) => sum + row.wins, 0), 14);
+  assert.equal(results.skips.reduce((sum, row) => sum + row.skipped, 0), 14);
+  assert.equal(results.finals.filter((row) => row.style === null).length, 7);
+  assert.equal(results.finals.reduce((sum, row) => sum + row.total, 0), 14);
   assert.equal((await getResults("?status=complete")).summary.started, 2);
   assert.equal((await getResults("?from=2026-09-25&to=2026-09-25")).summary.started, 2);
   assert.deepEqual((await getResults("?from=2026-09-26&to=2026-09-26")).summary, { started: 1, completed: 0, unfinished: 1 });
@@ -135,10 +139,10 @@ try {
   assert.equal(both.population, 3);
   assert.deepEqual(both.summary, {started: 1, completed: 1, unfinished: 0});
   assert.deepEqual(both.profile.find((q) => q.id === firstId).counts, {pascal: 1});
-  assert.equal(both.preferences.reduce((sum, row) => sum + row.wins, 0), 8);
-  assert.equal(both.preferences.reduce((sum, row) => sum + row.shown, 0), 16);
-  assert.equal(both.skips.reduce((sum, row) => sum + row.total, 0), 8);
-  assert.equal(both.finals.reduce((sum, row) => sum + row.total, 0), 3);
+  assert.equal(both.preferences.reduce((sum, row) => sum + row.wins, 0), 14);
+  assert.equal(both.preferences.reduce((sum, row) => sum + row.shown, 0), 28);
+  assert.equal(both.skips.reduce((sum, row) => sum + row.total, 0), 14);
+  assert.equal(both.finals.reduce((sum, row) => sum + row.total, 0), 7);
   assert.equal((await filtered({[ageId]: "55_or_more", [firstId]: "skipped"})).summary.started, 0);
   const missingProfile = await filtered({[ageId]: "__missing__", [firstId]: "__missing__"});
   assert.deepEqual(missingProfile.summary, {started: 1, completed: 0, unfinished: 1});
@@ -186,9 +190,9 @@ try {
   assert.deepEqual(historical.summary, { started: 1, completed: 1, unfinished: 0 });
   assert.equal(historical.profile.length, 1);
   assert.deepEqual(historical.profile[0].counts, { python: 1 });
-  assert.equal(historical.preferences.reduce((sum, row) => sum + row.wins, 0), 8);
-  assert.equal(historical.skips.reduce((sum, row) => sum + row.total, 0), 8);
-  assert.equal(historical.finals.reduce((sum, row) => sum + row.total, 0), 3);
+  assert.equal(historical.preferences.reduce((sum, row) => sum + row.wins, 0), 14);
+  assert.equal(historical.skips.reduce((sum, row) => sum + row.total, 0), 14);
+  assert.equal(historical.finals.reduce((sum, row) => sum + row.total, 0), 7);
   assert.equal((await getResults("?datasetId=history&from=2026-01-01")).summary.started, 0);
   assert.equal((await getResults("?datasetId=empty")).summary.started, 0);
   const defaultResults = await getResults();
@@ -263,7 +267,7 @@ try {
   const updatedSession = await post('sessions', { language: 'pt' });
   assert.equal(updatedSession.datasetId, managed.active.id);
   assert.equal(updatedSession.profileQuestions[0].question_pt, 'Pergunta revista para teste');
-  assert.equal(updatedSession.comparisons.length, 78);
+  assert.equal(updatedSession.comparisons.length, 40);
   assert.equal((await pool.query('SELECT question_pt FROM profile_questions WHERE id=$1', [ongoing.profileQuestions[0].id])).rows[0].question_pt, originalQuestion);
   await post('profile-answers', { sessionId: ongoing.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' });
   await post('profile-answers', { sessionId: updatedSession.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' }, 400);
@@ -280,7 +284,7 @@ try {
   console.log("Private results: authentication, counts, skips, date boundaries, empty data and logout verified.");
   console.log("All HTTP/PostgreSQL integration checks passed; public data was not touched.");
 } catch (error) {
-  console.error("Integration check failed:", error.code || error.message);
+  console.error("Integration check failed:", error.code === "ERR_ASSERTION" ? error.stack : error.code || error.message);
   process.exitCode = 1;
 } finally {
   if (previousToken === undefined) delete process.env.EXPORT_TOKEN;

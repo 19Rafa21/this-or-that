@@ -64,7 +64,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
 
   app.get("/api/health", route(async (_req, res, database) => {
     const active = (await database.query("SELECT version FROM datasets WHERE active")).rows[0];
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 1 });
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 1, studyVersion: 2 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {
@@ -73,6 +73,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
     const dataset = (await database.query("SELECT id, version FROM datasets WHERE active")).rows[0];
     if (!dataset) throw new InputError("The current dataset must be seeded before starting the game", 503);
     const content = await loadDataset(database, dataset.id);
+    if (content.comparisons.some((c) => c.category === "blocks") && req.body?.clientStudyVersion !== 2) throw new InputError("Please reload the page to use the updated questionnaire", 426);
     replayTournament(content.comparisons, []);
     const id = randomBytes(16).toString("hex");
     await database.query("INSERT INTO game_sessions (id, dataset_id, interface_language) VALUES ($1, $2, $3)", [id, dataset.id, language]);

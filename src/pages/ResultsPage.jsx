@@ -1,3 +1,4 @@
+import { getCategoryOrder } from "../game/categoryOrder.js";
 import { useEffect, useRef, useState } from "react";
 import DatasetManager from "../components/DatasetManager.jsx";
 import Layout from "../components/Layout.jsx";
@@ -149,10 +150,10 @@ export default function ResultsPage({ language, setLanguage }) {
             value: row.total ? row.skipped / row.total * 100 : null, total: row.total, skipped: row.skipped }))} text={text} percent metadata={metadata} />
         </div><p className="results-caption">{text.skipNote}</p></section>
         <section id="preferences"><h2>{text.preferences}</h2><p className="results-caption">{text.preferenceNote}</p><div className="results-grid">
-          {Object.keys(text.categories).map((category) => <ResultsChart key={category} title={text.categories[category]}
+          {getCategoryOrder([...data.preferences, ...data.finals, ...data.skips]).map((category) => <ResultsChart key={category} title={text.categories[category]}
             rows={preferenceRows(data.preferences.filter((row) => row.category === category), text.styles)} text={text} percent metadata={metadata} />)}
         </div><h2>{text.finals}</h2><p className="results-caption">{text.finalNote}</p><div className="results-grid">
-          {Object.keys(text.categories).map((category) => <ResultsChart key={category} title={`${text.finals} · ${text.categories[category]}`}
+          {getCategoryOrder([...data.preferences, ...data.finals, ...data.skips]).map((category) => <ResultsChart key={category} title={`${text.finals} · ${text.categories[category]}`}
             rows={data.finals.filter((row) => row.category === category).map((row) => ({ label: row.style ? text.styles[row.style] || row.style : text.incomplete, value: row.total }))} text={text} metadata={metadata} />)}
         </div></section>
         <section id="profile"><h2>{text.profile}</h2><p className="results-caption">{text.profileNote} {data.profile.some((question) => question.id.endsWith(":age-band")) && text.ageNote}</p><div className="results-grid">

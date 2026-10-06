@@ -1,6 +1,6 @@
 import { snippets, comparisons, profileQuestions } from "./seed-data.js";
 import { buildInitialFlow, resolveCumulativeChoice } from "../src/game/gameUtils.js";
-import { CATEGORY_ORDER } from "./tournament.js";
+import { getCategoryOrder } from "../src/game/categoryOrder.js";
 
 export const apiSnippets = snippets.map((item) => ({ id: item.id, category: item.category,
   dataset_id: item.datasetId, language: item.language, style: item.style, source_language: item.sourceLanguage,
@@ -10,8 +10,9 @@ export const apiComparisons = comparisons.map((item) => ({ id: item.id, category
   dataset_id: item.datasetId, snippet_a: apiSnippets.find((s) => s.id === item.snippetAId),
   snippet_b: apiSnippets.find((s) => s.id === item.snippetBId) }));
 
-export function simulateGame(decision = () => "left", random = () => 0.999) {
-  let flow = buildInitialFlow(apiComparisons, profileQuestions, CATEGORY_ORDER, random);
+export function simulateGame(decision = () => "left", random = () => 0.999, content = { comparisons: apiComparisons, questions: profileQuestions }) {
+  const comparisonData = content.comparisons;
+  let flow = buildInitialFlow(comparisonData, content.questions, getCategoryOrder(comparisonData), random);
   let selectedStyles = {};
   const choices = [];
   for (let index = 0; index < flow.length; index += 1) {
@@ -23,7 +24,7 @@ export function simulateGame(decision = () => "left", random = () => 0.999) {
       left_snippet_id: step.leftSnippet.id, right_snippet_id: step.rightSnippet.id,
       selected_snippet_id: side === "skip" ? null : selected.id, skipped: side === "skip" });
     const resolution = resolveCumulativeChoice({ flow, currentIndex: index, selectedSnippet: selected,
-      comparisons: apiComparisons, categoryOrder: CATEGORY_ORDER, selectedStyles,
+      comparisons: comparisonData, categoryOrder: getCategoryOrder(comparisonData), selectedStyles,
       nextRoundNumber: choices.length + 1, random });
     flow = resolution.flow;
     selectedStyles = resolution.selectedStyles;

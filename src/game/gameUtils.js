@@ -106,7 +106,7 @@ export function buildInitialFlow(comparisons, questions, categoryOrder, random) 
     ...questions.map((question, index) => ({
       ...question,
       type: "profile",
-      afterCategory: categoryOrder[Math.min(categoryOrder.length - 1, Math.floor(index / 2))],
+      afterCategory: categoryOrder[categoryOrder.length > 3 ? Math.floor((index + 1) * categoryOrder.length / questions.length) - 1 : Math.min(categoryOrder.length - 1, Math.floor(index / 2))],
     })),
   ];
 }

@@ -1,237 +1,73 @@
 export const DATASET = {
-  id: "dataset-2026-07",
-  version: "2026.7",
-  description:
-    "Cumulative syntax study with inherited block delimiters, equivalent conditions and five profile questions.",
+  id: 'dataset-2026-08', version: '2026.8',
+  description: 'Seven syntax dimensions: declarations, blocks, loops, conditions, assignment, logic and functions. Block choices carry forward; other features are compared separately.',
 };
-
-export const CATEGORY_ORDER = ["variables", "loops", "conditionals"];
-
+export { EXTENDED_CATEGORY_ORDER as CATEGORY_ORDER } from '../src/game/categoryOrder.js';
+const indent = (body) => body.split('\n').map((line) => `  ${line}`).join('\n');
+const blocks = [
+  { style: 'block_braces', label: '{ … }', render: (header, body) => `${header} {\n${indent(body)}\n}` },
+  { style: 'block_indent', label: 'Indentação / Indentation', render: (header, body) => `${header}:\n${indent(body)}` },
+  { style: 'block_begin_end', label: 'begin … end', render: (header, body) => `${header}\nbegin\n${indent(body)}\nend;` },
+];
 const intentions = {
-  variables: {
-    pt: "Inicializar as variáveis inteiras i e total com o valor zero.",
-    en: "Initialize the integer variables i and total to zero.",
-  },
-  loops: {
-    pt: "Percorrer os valores de 0 a 9, aumentando i uma unidade de cada vez.",
-    en: "Iterate over the values 0 to 9, increasing i by one each time.",
-  },
-  conditionals: {
-    pt: "Somar a total os valores pares de 0 a 9. Mantém-se o tipo de bloco escolhido no ciclo; compara apenas a escrita da condição.",
-    en: "Add the even values from 0 to 9 to total. The block style chosen for the loop is preserved; compare only how the condition is written.",
-  },
+  variables: ['Inicializar as variáveis inteiras i e total a zero. Compara a forma de declarar as variáveis.', 'Initialize the integer variables i and total to zero. Compare the variable declaration syntax.'],
+  blocks: ['Quando ativo é verdadeiro, atribuir 1 a total. Compara apenas a delimitação do bloco; esta escolha será mantida nas etapas seguintes.', 'When ativo is true, assign 1 to total. Compare only the block delimiters; this choice carries forward.'],
+  loops: ['Somar a total os inteiros de 0 a 9, sem incluir 10. Compara a forma de percorrer esses valores; o bloco mantém-se.', 'Add the integers 0 to 9 to total, excluding 10. Compare the iteration form; the block style stays the same.'],
+  conditionals: ['Se i for par, somar i a total. Compara apenas o cabeçalho da condição; o bloco mantém-se.', 'If i is even, add i to total. Compare only the conditional header; the block style stays the same.'],
+  assignments: ['Adicionar valor a total, que começa a zero. Todas as alternativas deixam total com o valor 2.', 'Add valor to total, which starts at zero. Every alternative leaves total equal to 2.'],
+  logical: ['Permitir apenas quando ativo é verdadeiro e bloqueado é falso. Compara os operadores lógicos em símbolos ou palavras.', 'Allow only when ativo is true and bloqueado is false. Compare symbolic and word-based logical operators.'],
+  functions: ['Definir somar, que recebe a e b e devolve a soma. Compara apenas a palavra que inicia a função; os argumentos e o bloco mantêm-se.', 'Define somar, which receives a and b and returns their sum. Compare only the function keyword; arguments and block style stay the same.'],
 };
-
-function makeSnippet({
-  id,
-  category,
-  variant,
-  style,
-  sourceLanguage,
-  label,
-  code,
-  inheritedStyles = {},
-}) {
-  return {
-    id: `${DATASET.id}:${id}`,
-    datasetId: DATASET.id,
-    category,
-    language: variant,
-    style,
-    sourceLanguage,
-    inheritedStyles,
-    label,
-    code,
-    intentionPt: intentions[category].pt,
-    intentionEn: intentions[category].en,
-  };
-}
-
-const styles = [
-  {
-    id: "c",
-    style: "c_style",
-    label: "C",
-    declaration: "int i = 0;\nint total = 0;",
-    renderLoop(body = "") {
-      const content = body ? `${indent(body, 2)}\n` : "";
-      return `while (i < 10) {\n${content}  i++;\n}`;
-    },
-  },
-  {
-    id: "python",
-    style: "python_style",
-    label: "Python",
-    declaration: "i = 0\ntotal = 0",
-    renderLoop(body = "") {
-      const content = body ? `${indent(body, 4)}\n` : "";
-      return `while i < 10:\n${content}    i += 1`;
-    },
-  },
-  {
-    id: "java",
-    style: "java_style",
-    label: "Java",
-    declaration: "var i = 0;\nvar total = 0;",
-    renderLoop(body = "") {
-      const content = body ? `\n${indent(body, 2)}\n` : "\n";
-      return `for (; i < 10; i++) {${content}}`;
-    },
-  },
-  {
-    id: "pascal",
-    style: "pascal_style",
-    label: "Pascal",
-    declaration: "i: Integer := 0;\ntotal: Integer := 0;",
-    renderLoop(body = "") {
-      const content = body ? `${indent(body, 2)}\n` : "";
-      return `while i < 10 do\nbegin\n${content}  i := i + 1;\nend;`;
-    },
-  },
-];
-
-// These alternatives name syntax features, not languages: C and Java share
-// the parenthesized condition. Inventing a library call to distinguish them
-// would change what the comparison measures.
-const conditionalStyles = [
-  { id: "parenthesized", style: "condition_parenthesized", label: "if (…)", header: (condition) => `if (${condition})` },
-  { id: "plain", style: "condition_plain", label: "if …", header: (condition) => `if ${condition}` },
-  { id: "then", style: "condition_then", label: "if … then", header: (condition) => `if ${condition} then` },
-];
-
-function renderConditional(loopStyle, conditionalStyle) {
-  // The arithmetic and assignment are identical within each comparison;
-  // only the conditional header varies. Delimiters inherit the loop choice.
-  const pascal = loopStyle.id === "pascal";
-  const header = conditionalStyle.header(pascal ? "i mod 2 = 0" : "i % 2 == 0");
-  if (pascal) return `${header}\nbegin\n  total := total + i;\nend;`;
-  if (loopStyle.id === "python") return `${header}:\n    total += i`;
-  return `${header} {\n  total += i;\n}`;
-}
-
-function indent(code, spaces) {
-  const padding = " ".repeat(spaces);
-  return code
-    .split("\n")
-    .map((line) => `${padding}${line}`)
-    .join("\n");
-}
-
-const declarationSnippets = styles.map((item) =>
-  makeSnippet({
-    id: `variables-${item.id}-style`,
-    category: "variables",
-    variant: `${item.id}_declaration`,
-    style: item.style,
-    sourceLanguage: item.id,
-    label: item.label,
-    code: item.declaration,
-  })
-);
-
-const loopSnippets = styles.flatMap((declarationStyle) =>
-  styles.map((loopStyle) =>
-    makeSnippet({
-      id: `loops-${declarationStyle.id}-declaration-${loopStyle.id}-style`,
-      category: "loops",
-      variant: `${declarationStyle.id}_declaration__${loopStyle.id}_loop`,
-      style: loopStyle.style,
-      sourceLanguage: loopStyle.id,
-      inheritedStyles: { variables: declarationStyle.style },
-      label: loopStyle.label,
-      code: `${declarationStyle.declaration}\n\n${loopStyle.renderLoop()}`,
-    })
-  )
-);
-
-const conditionalSnippets = styles.flatMap((declarationStyle) =>
-  styles.flatMap((loopStyle) =>
-    conditionalStyles.map((conditionalStyle) =>
-      makeSnippet({
-        id: `conditionals-${declarationStyle.id}-declaration-${loopStyle.id}-loop-${conditionalStyle.id}-style`,
-        category: "conditionals",
-        variant: `${declarationStyle.id}_declaration__${loopStyle.id}_loop__${conditionalStyle.id}_conditional`,
-        style: conditionalStyle.style,
-        sourceLanguage: "experimental",
-        inheritedStyles: {
-          variables: declarationStyle.style,
-          loops: loopStyle.style,
-        },
-        label: conditionalStyle.label,
-        code: `${declarationStyle.declaration}\n\n${loopStyle.renderLoop(
-          renderConditional(loopStyle, conditionalStyle)
-        )}`,
-      })
-    )
-  )
-);
-
-export const snippets = [
-  ...declarationSnippets,
-  ...loopSnippets,
-  ...conditionalSnippets,
-];
-
-function comparison(id, category, snippetAId, snippetBId) {
-  return {
-    id: `${DATASET.id}:${id}`,
-    datasetId: DATASET.id,
-    category,
-    snippetAId,
-    snippetBId,
-    validationNotes: "Experimental syntax comparison; inherited declarations and loop retained. Conditional pairs differ only in the condition header, with block delimiters inherited from the loop.",
-  };
-}
-
-function buildPairComparisons(items, category, context) {
-  const result = [];
-
-  for (let left = 0; left < items.length; left += 1) {
-    for (let right = left + 1; right < items.length; right += 1) {
-      result.push(
-        comparison(
-          `${category}-${context}-${items[left].style}-vs-${items[right].style}`,
-          category,
-          items[left].id,
-          items[right].id
-        )
-      );
-    }
+const make = (category, style, label, code, inheritedStyles = {}) => ({
+  id: `${DATASET.id}:${category}-${Object.values(inheritedStyles).join('-') || 'base'}-${style}`,
+  datasetId: DATASET.id, category, language: `${Object.values(inheritedStyles).join('_')}_${style}`,
+  style, sourceLanguage: 'experimental', inheritedStyles, label, code,
+  intentionPt: intentions[category][0], intentionEn: intentions[category][1],
+});
+const declarations = [
+  ['c_style', 'int', 'int i = 0;\nint total = 0;'],
+  ['python_style', 'Sem palavra-chave / No keyword', 'i = 0\ntotal = 0'],
+  ['java_style', 'var', 'var i = 0;\nvar total = 0;'],
+  ['pascal_style', ': Integer', 'i: Integer := 0;\ntotal: Integer := 0;'],
+].map(([style, label, code]) => make('variables', style, label, code));
+const blockSnippets = blocks.map((b) => make('blocks', b.style, b.label,
+  `ativo = true;\ntotal = 0;\n\n${b.render('if (ativo)', 'total = 1;')}`));
+const loops = blocks.flatMap((b) => [
+  ['loop_while', 'while', b.render('while (i < 10)', 'total = total + i;\ni = i + 1;')],
+  ['loop_for_counter', 'for (…; …; …)', b.render('for (; i < 10; i = i + 1)', 'total = total + i;')],
+  ['loop_for_range', 'for … in …', b.render('for i in 0..<10', 'total = total + i;')],
+].map(([style, label, code]) => make('loops', style, label, `i = 0;\ntotal = 0;\n\n${code}`, { blocks: b.style })));
+const conditions = blocks.flatMap((b) => [
+  ['condition_parenthesized', 'if (…)', 'if (i % 2 == 0)'],
+  ['condition_plain', 'if …', 'if i % 2 == 0'],
+  ['condition_then', 'if … then', 'if i % 2 == 0 then'],
+].map(([style, label, header]) => make('conditionals', style, label,
+  `i = 4;\ntotal = 0;\n\n${b.render(header, 'total = total + i;')}`, { blocks: b.style })));
+const assignments = [
+  ['assignment_explicit', '= … + …', 'total = total + valor;'],
+  ['assignment_compound', '+=', 'total += valor;'],
+  ['assignment_colon', ':=', 'total := total + valor;'],
+].map(([style, label, code]) => make('assignments', style, label, `total = 0;\nvalor = 2;\n\n${code}`));
+const logical = [
+  ['logic_symbols', '&& / !', 'ativo && !bloqueado'],
+  ['logic_words', 'and / not', 'ativo and not bloqueado'],
+].map(([style, label, expression]) => make('logical', style, label, `ativo = true;\nbloqueado = false;\n\npermitido = ${expression};`));
+const functions = blocks.flatMap((b) => ['function', 'def', 'fun'].map((keyword) =>
+  make('functions', `function_${keyword}`, keyword, b.render(`${keyword} somar(a, b)`, 'return a + b;'), { blocks: b.style })));
+export const snippets = [...declarations, ...blockSnippets, ...loops, ...conditions, ...assignments, ...logical, ...functions];
+export const comparisons = [];
+for (let i = 0; i < snippets.length; i++) {
+  for (const b of snippets.slice(i + 1)) {
+    const a = snippets[i];
+    if (a.category !== b.category || JSON.stringify(a.inheritedStyles) !== JSON.stringify(b.inheritedStyles)) continue;
+    comparisons.push({ id: `${DATASET.id}:pair-${i}-${b.language}`, datasetId: DATASET.id, category: a.category,
+      snippetAId: a.id, snippetBId: b.id, validationNotes: 'Experimental syntax. Compare only the stated feature. Block-dependent alternatives inherit the selected delimiter; other categories use independent short examples.' });
   }
-
-  return result;
 }
-
-export const comparisons = [
-  ...buildPairComparisons(declarationSnippets, "variables", "declaration"),
-  ...styles.flatMap((declarationStyle) =>
-    buildPairComparisons(
-      loopSnippets.filter(
-        (snippet) =>
-          snippet.inheritedStyles.variables === declarationStyle.style
-      ),
-      "loops",
-      `${declarationStyle.id}-declaration`
-    )
-  ),
-  ...styles.flatMap((declarationStyle) =>
-    styles.flatMap((loopStyle) =>
-      buildPairComparisons(
-        conditionalSnippets.filter(
-          (snippet) =>
-            snippet.inheritedStyles.variables === declarationStyle.style &&
-            snippet.inheritedStyles.loops === loopStyle.style
-        ),
-        "conditionals",
-        `${declarationStyle.id}-declaration-${loopStyle.id}-loop`
-      )
-    )
-  ),
-];
 
 const option = (value, pt, en) => ({ value, pt, en });
 
-// Ordered as two short profile breaks, then age after the final comparisons.
+// Five short profile breaks across the study, ending with age after functions.
 const languageOptions = [
   option("python", "Python", "Python"),
   option("javascript", "JavaScript", "JavaScript"),
