@@ -1125,3 +1125,9 @@ a:focus-visible {
 
 .code-grid .code-area { height: auto; min-height: 280px; min-width: 0; overflow: hidden; display: flex; align-items: center; }
 .code-card-front { width: 100%; min-width: 0; }
+
+.comparison-line { display: block; min-height: 1.5em; }
+.comparison-spacer { user-select: none; }
+@media (max-width: 900px) {
+  .comparison-spacer { display: none; }
+}

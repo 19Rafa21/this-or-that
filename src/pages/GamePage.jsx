@@ -132,6 +132,7 @@ export default function GamePage({ language, setLanguage }) {
   }
 
   const currentStep = gameState.flow[gameState.currentIndex];
+  const categoryOrder = gameState.categoryOrder || getCategoryOrder(gameState.comparisons);
 
   const progress =
     ((gameState.currentIndex + 1) / (gameState.plannedCodeQuestions + gameState.plannedProfileQuestions)) * 100;
@@ -361,9 +362,10 @@ export default function GamePage({ language, setLanguage }) {
         ) : currentStep.type === "code" ? (
           <>
             <h2 className="game-question">{dynamicQuestion}</h2>
-            <p className="comparison-focus">{text.comparing}: {resultsTranslations[language].categories[currentStep.category]} <span>{text.highlightNote}</span></p>
+            <p className="comparison-focus">{text.stage(categoryOrder.indexOf(currentStep.category) + 1, categoryOrder.length)} — {resultsTranslations[language].categories[currentStep.category]}
+              {gameState.answers.length === 0 && <span>{text.highlightNote}</span>}</p>
             <p className="game-context">
-              {currentStep.leftSnippet[`intention_${language}`]} {gameState.progressive ? text.cumulativeNote : getCategoryOrder(gameState.comparisons).length > 3 ? text.independentNote : text.contextNote}
+              {currentStep.leftSnippet[`intention_${language}`]} {gameState.answers.length === 0 && (gameState.progressive ? text.cumulativeNote : categoryOrder.length > 3 ? text.independentNote : text.contextNote)}
             </p>
 
             <div className="code-grid">
