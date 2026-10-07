@@ -6,7 +6,7 @@ export function createDatasetLoader({ ttlMs = 30000, now = Date.now } = {}) {
     if (existing && (existing.pending || existing.expires > now())) return existing.promise;
     const entry = { pending: true, expires: 0 };
     entry.promise = Promise.all([
-      database.query(`SELECT c.id, c.category, c.dataset_id,
+      database.query(`SELECT c.id, c.category, c.dataset_id, c.display_order, c.presentation, c.progressive,
         to_jsonb(a) AS snippet_a, to_jsonb(b) AS snippet_b FROM comparisons c
         JOIN snippets a ON a.id = c.snippet_a_id JOIN snippets b ON b.id = c.snippet_b_id
         WHERE c.dataset_id = $1 AND c.active AND a.active AND b.active

@@ -67,7 +67,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
 
   app.get("/api/health", route(async (_req, res, database) => {
     const active = (await database.query("SELECT version FROM datasets WHERE active")).rows[0];
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 1, studyVersion: 3 });
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 2, studyVersion: 3 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {
@@ -76,11 +76,12 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
     const dataset = (await database.query("SELECT id, version FROM datasets WHERE active")).rows[0];
     if (!dataset) throw new InputError("The current dataset must be seeded before starting the game", 503);
     const content = await loadDataset(database, dataset.id);
-    if (content.comparisons.some((c) => c.category === "blocks") && !((isCumulativeStudy(content.comparisons) ? [3] : [2, 3]).includes(req.body?.clientStudyVersion))) throw new InputError("Please reload the page to use the updated questionnaire", 426);
+    if (content.comparisons.some((c) => c.category === "blocks") && !((isCumulativeStudy(content.comparisons) ? [3, 4] : [2, 3, 4]).includes(req.body?.clientStudyVersion))) throw new InputError("Please reload the page to use the updated questionnaire", 426);
+    if (content.comparisons.some(c => Number.isInteger(c.display_order)) && req.body?.clientStudyVersion !== 4) throw new InputError("Please reload the page to use the updated questionnaire", 426);
     replayTournament(content.comparisons, []);
     const id = randomBytes(16).toString("hex");
     await database.query("INSERT INTO game_sessions (id, dataset_id, interface_language) VALUES ($1, $2, $3)", [id, dataset.id, language]);
-    res.status(201).json({ sessionId: id, datasetId: dataset.id, datasetVersion: dataset.version, ...content, ...(isCumulativeStudy(content.comparisons) ? { progressive: true, categoryOrder: getCategoryOrder(content.comparisons), plannedCodeQuestions: countPlannedCodeQuestions(content.comparisons, getCategoryOrder(content.comparisons)), comparisons: contextComparisons(content.comparisons, "variables") } : {}) });
+    res.status(201).json({ sessionId: id, datasetId: dataset.id, datasetVersion: dataset.version, ...content, ...(isCumulativeStudy(content.comparisons) ? { progressive: true, categoryOrder: getCategoryOrder(content.comparisons), plannedCodeQuestions: countPlannedCodeQuestions(content.comparisons, getCategoryOrder(content.comparisons)), comparisons: contextComparisons(content.comparisons, getCategoryOrder(content.comparisons)[0]) } : {}) });
   }));
 
   for (const path of ["/api/comparisons", "/api/v2/profile-questions", "/api/profile-questions", "/api/snippets"]) {

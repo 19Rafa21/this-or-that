@@ -141,7 +141,7 @@ export default function GamePage({ language, setLanguage }) {
 
   const dynamicQuestion =
     currentStep.type === "code"
-      ? questionList[0]
+      ? currentStep.presentation?.[`question_${language}`] || questionList[0]
       : language === "pt"
       ? currentStep.question_pt
       : currentStep.question_en;
@@ -362,10 +362,10 @@ export default function GamePage({ language, setLanguage }) {
         ) : currentStep.type === "code" ? (
           <>
             <h2 className="game-question">{dynamicQuestion}</h2>
-            <p className="comparison-focus">{text.stage(categoryOrder.indexOf(currentStep.category) + 1, categoryOrder.length)} — {resultsTranslations[language].categories[currentStep.category]}
+            <p className="comparison-focus">{text.stage(categoryOrder.indexOf(currentStep.category) + 1, categoryOrder.length)} — {currentStep.presentation?.[`title_${language}`] || resultsTranslations[language].categories[currentStep.category]}
               {gameState.answers.length === 0 && <span>{text.highlightNote}</span>}</p>
             <p className="game-context">
-              {currentStep.leftSnippet[`intention_${language}`]} {gameState.answers.length === 0 && (gameState.progressive ? text.cumulativeNote : categoryOrder.length > 3 ? text.independentNote : text.contextNote)}
+              {currentStep.presentation?.[`intention_${language}`] || currentStep.leftSnippet[`intention_${language}`]} {gameState.answers.length === 0 && (gameState.progressive ? text.cumulativeNote : categoryOrder.length > 3 ? text.independentNote : text.contextNote)}
             </p>
 
             <div className="code-grid">

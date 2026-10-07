@@ -1,3 +1,4 @@
+import { getCategoryOrder } from "../src/game/categoryOrder.js";
 import { InputError } from "./tournament.js";
 
 export function parseResultFilters(query = {}) {
@@ -50,6 +51,8 @@ export async function loadStudyResults(pool, filters, { activeOnly = false } = {
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const datasets = (await client.query(`SELECT d.id, d.version, d.active,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('category', stages.category, 'display_order', stages.display_order) ORDER BY stages.display_order, stages.category)
+        FROM (SELECT category, min(display_order) AS display_order FROM comparisons WHERE dataset_id=d.id AND active GROUP BY category) stages), '[]'::jsonb) AS stages,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id', q.id, 'question_pt', q.question_pt,
         'question_en', q.question_en, 'options', q.options) ORDER BY q.display_order)
         FROM profile_questions q WHERE q.dataset_id = d.id), '[]'::jsonb) AS questions,
@@ -99,6 +102,7 @@ export async function loadStudyResults(pool, filters, { activeOnly = false } = {
       GROUP BY category.key, category.value ORDER BY category.key, category.value`, params)).rows;
     await client.query("COMMIT");
     return { datasetId: selected.id, datasetVersion: selected.version, datasets,
+      categoryOrder: selected.stages ? getCategoryOrder(selected.stages) : getCategoryOrder([...preferences, ...finals, ...skips]),
       generatedAt: new Date().toISOString(), filters: { ...filters, datasetId: selected.id },
       population, summary, profile, preferences, skips, finals };
   } catch (error) {
@@ -112,6 +116,7 @@ export async function loadPublicResults(pool) {
   const data = await loadStudyResults(pool, parseResultFilters(), { activeOnly: true });
   return {
     generatedAt: data.generatedAt,
+    categoryOrder: data.categoryOrder,
     summary: { started: data.summary.started, completed: data.summary.completed, unfinished: data.summary.unfinished },
     profile: data.profile.map((question) => ({
       question_pt: question.question_pt, question_en: question.question_en,

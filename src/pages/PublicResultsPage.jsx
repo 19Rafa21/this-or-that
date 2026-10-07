@@ -57,11 +57,11 @@ export default function PublicResultsPage({ language, setLanguage }) {
         {data.summary.started === 0 ? <p className="results-empty">{text.publicEmpty}</p> : <>
           <nav className="results-sections"><a href="#finals">{text.finals}</a><a href="#preferences">{text.preferences}</a><a href="#profile">{text.profile}</a></nav>
           <section id="finals"><h2>{text.finals}</h2><p className="results-caption">{text.finalNote}</p><div className="results-grid">
-            {getCategoryOrder([...data.preferences, ...data.finals, ...data.skips]).map((category) => <ResultsChart key={category} title={text.categories[category]}
+            {(data.categoryOrder || getCategoryOrder([...data.preferences, ...data.finals, ...data.skips])).map((category) => <ResultsChart key={category} title={text.categories[category]}
               rows={data.finals.filter((row) => row.category === category).map((row) => ({ label: row.style ? text.styles[row.style] || row.style : text.incomplete, value: row.total }))} {...chartProps} />)}
           </div></section>
           <section id="preferences"><h2>{text.preferences}</h2><p className="results-caption">{text.preferenceNote}</p><div className="results-grid">
-            {getCategoryOrder([...data.preferences, ...data.finals, ...data.skips]).map((category) => <ResultsChart key={category} title={text.categories[category]}
+            {(data.categoryOrder || getCategoryOrder([...data.preferences, ...data.finals, ...data.skips])).map((category) => <ResultsChart key={category} title={text.categories[category]}
               rows={preferenceRows(data.preferences.filter((row) => row.category === category), text.styles)} percent {...chartProps} />)}
             <ResultsChart title={text.skips} rows={data.skips.map((row) => ({ label: text.categories[row.category] || row.category,
               value: row.total ? row.skipped / row.total * 100 : null, total: row.total, skipped: row.skipped }))} percent {...chartProps} />

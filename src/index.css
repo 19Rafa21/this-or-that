@@ -1121,7 +1121,7 @@ a:focus-visible {
 .comparison-focus { margin: 0 0 12px; text-align: center; font-weight: 800; }
 .comparison-focus span { display: block; margin-top: 6px; font-size: .85rem; font-weight: 400; }
 .comparison-code-diff { max-height: 460px; overflow: auto; }
-.code-change { color: #25103d; background: #e6d5ff; border-bottom: 2px solid #9b70cf; border-radius: 2px; }
+.code-change { color: #c4a0ff; background: transparent; font-weight: 700; }
 
 .code-grid .code-area { height: auto; min-height: 280px; min-width: 0; overflow: hidden; display: flex; align-items: center; }
 .code-card-front { width: 100%; min-width: 0; }
@@ -1131,3 +1131,10 @@ a:focus-visible {
 @media (max-width: 900px) {
   .comparison-spacer { display: none; }
 }
+
+.dataset-actions { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
+.dataset-manager .dataset-actions button { margin: .5rem 0; }
+.dataset-manager select { padding: .6rem; border: 1px solid #9885ad; border-radius: 6px; color: #241638; background: #fff; }
+.dataset-text-preview { background: #f3eff8; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+.dataset-option-editor { border-bottom: 1px solid #ded5ea; padding: .5rem 0; }
+.dataset-structure-warning { border: 1px solid #9885ad; border-radius: 8px; padding: 1rem; margin: 1rem 0; }

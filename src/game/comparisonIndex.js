@@ -8,7 +8,7 @@ export function comparisonIndex(comparisons) {
     byId.set(pair.id, pair);
     const context = pair.snippet_a.inherited_styles || {};
     const keys = Object.keys(context).sort();
-    if (pair.category === 'functions' && keys.length === 6) cumulative = true;
+    if (pair.progressive || (pair.category === 'functions' && keys.length === 6)) cumulative = true;
     let groups = byCategory.get(pair.category);
     if (!groups) { groups = new Map(); byCategory.set(pair.category, groups); }
     const keySet = JSON.stringify(keys);

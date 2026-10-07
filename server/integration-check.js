@@ -41,7 +41,7 @@ try {
   await once(server, "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   const post = async (path, body, status = 201) => {
-    const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(path === "sessions" ? { ...body, clientStudyVersion: 3 } : body) });
+    const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(path === "sessions" ? { ...body, clientStudyVersion: 4 } : body) });
     const result = await response.json();
     assert.equal(response.status, status, `${path}: ${JSON.stringify(result)}`);
     return result;
@@ -217,7 +217,7 @@ try {
   assert.equal(publicResponse.status, 200);
   assert.equal(publicResponse.headers.get("cache-control"), "no-store");
   const publicResults = await publicResponse.json();
-  assert.deepEqual(Object.keys(publicResults).sort(), ["finals", "generatedAt", "preferences", "profile", "skips", "summary"]);
+  assert.deepEqual(Object.keys(publicResults).sort(), ["categoryOrder", "finals", "generatedAt", "preferences", "profile", "skips", "summary"]);
   assert.deepEqual(publicResults.summary, defaultResults.summary);
   assert.deepEqual(publicResults.preferences, defaultResults.preferences);
   assert.deepEqual(publicResults.finals, defaultResults.finals);
@@ -256,11 +256,13 @@ try {
   let draft = (await management('')).draft;
   assert.equal(draft.content.questions.length, 5);
   const originalQuestion = draft.content.questions[0].question_pt;
+  draft.content.stages[0].title_pt = 'Título configurado';
+  draft.content.stages[0].question_en = 'Custom comparison question';
   draft.content.version = 'integration-published';
   draft.content.questions[0].question_pt = 'Pergunta revista para teste';
   draft.content.snippets[0].code = 'example revised for test';
   const invalid = structuredClone(draft.content);
-  invalid.questions[0].options[0].value = 'tampered';
+  invalid.questions[0].options[0].value = 'skipped';
   await management('save', { revision: draft.revision, content: invalid }, 400);
   await management('save', { revision: draft.revision, content: draft.content });
   await management('activate', { revision: draft.revision }, 409);
@@ -272,10 +274,14 @@ try {
   assert.equal(managed.active.version, 'integration-published');
   assert.ok(managed.active.activated_at);
   assert.equal(managed.active.sessions, 0);
+  const outdated = await fetch(`${base}/api/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: 'pt', clientStudyVersion: 3 }) });
+  assert.equal(outdated.status, 426);
   const updatedSession = await post('sessions', { language: 'pt' });
   assert.equal(updatedSession.datasetId, managed.active.id);
   assert.equal(updatedSession.profileQuestions[0].question_pt, 'Pergunta revista para teste');
   assert.equal(updatedSession.comparisons.length, 6);
+  assert.equal(updatedSession.comparisons[0].presentation.title_pt, 'Título configurado');
+  assert.equal(updatedSession.comparisons[0].presentation.question_en, 'Custom comparison question');
   assert.equal((await pool.query('SELECT question_pt FROM profile_questions WHERE id=$1', [ongoing.profileQuestions[0].id])).rows[0].question_pt, originalQuestion);
   await post('profile-answers', { sessionId: ongoing.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' });
   await post('profile-answers', { sessionId: updatedSession.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' }, 400);
@@ -285,6 +291,37 @@ try {
     rightSnippetId: firstChoice.right_snippet_id, selectedSnippetId: firstChoice.selected_snippet_id });
   assert.equal((await pool.query('SELECT count(*)::int AS count FROM datasets WHERE active')).rows[0].count, 1);
   assert.equal((await (await fetch(`${base}/api/health`)).json()).datasetVersion, 'integration-published');
+  await management('create');
+  let reordered = (await management('')).draft;
+  reordered.content.version = 'integration-reordered';
+  reordered.content.stages = [reordered.content.stages.at(-1), reordered.content.stages[0]];
+  reordered.content.stages[0].title_pt = 'Funções primeiro';
+  reordered.content.questions = [];
+  await management('save', { revision: reordered.revision, content: reordered.content }, 400);
+  await management('regenerate', { revision: reordered.revision, content: reordered.content });
+  reordered = (await management('')).draft;
+  assert.equal(reordered.content.generated, true);
+  await management('activate', { revision: reordered.revision });
+  const reorderedSession = await post('sessions', { language: 'pt' });
+  assert.deepEqual(reorderedSession.categoryOrder, ['functions', 'variables']);
+  assert.equal(reorderedSession.profileQuestions.length, 0);
+  let pairs = reorderedSession.comparisons, contender = null, seen = new Set(), round = 0;
+  while (pairs.length) {
+    const pair = pairs.find(p => (!contender || p.snippet_a.id === contender || p.snippet_b.id === contender) &&
+      (!seen.has(p.snippet_a.id) || !seen.has(p.snippet_b.id)));
+    assert.ok(pair);
+    const response = await post('choices', { sessionId: reorderedSession.sessionId, comparisonId: pair.id,
+      roundNumber: ++round, category: pair.category, leftSnippetId: pair.snippet_a.id,
+      rightSnippetId: pair.snippet_b.id, selectedSnippetId: pair.snippet_a.id });
+    contender = pair.snippet_a.id; seen.add(pair.snippet_a.id); seen.add(pair.snippet_b.id);
+    if (response.comparisons[0]?.category !== pair.category) { contender = null; seen = new Set(); }
+    pairs = response.comparisons;
+  }
+  const reorderedFinal = await post('final-results', { sessionId: reorderedSession.sessionId });
+  assert.equal(reorderedFinal.result.categoryResults.length, 2);
+  assert.equal(round, 5);
+  const reorderedPublic = await (await fetch(`${base}/api/public/results`)).json();
+  assert.deepEqual(reorderedPublic.categoryOrder, ['functions', 'variables']);
   console.log('Dataset management: protected access, draft validation, stale revisions, activation, immutable history and ongoing sessions verified.');
   const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });
   assert.equal(logout.status, 200);
