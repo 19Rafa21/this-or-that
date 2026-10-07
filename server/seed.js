@@ -129,82 +129,17 @@ async function insertDataset(client) {
 }
 
 async function insertSnippets(client) {
-  await client.query(
-    "UPDATE snippets SET active = false WHERE dataset_id = $1",
-    [DATASET.id]
-  );
-
-  for (const snippet of snippets) {
-    await client.query(
-      `
-        INSERT INTO snippets (
-          id, dataset_id, category, language, style, source_language,
-          inherited_styles, label, code,
-          intention_pt, intention_en, active
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, true)
-        ON CONFLICT (id) DO UPDATE SET
-          dataset_id = EXCLUDED.dataset_id,
-          category = EXCLUDED.category,
-          language = EXCLUDED.language,
-          style = EXCLUDED.style,
-          source_language = EXCLUDED.source_language,
-          inherited_styles = EXCLUDED.inherited_styles,
-          label = EXCLUDED.label,
-          code = EXCLUDED.code,
-          intention_pt = EXCLUDED.intention_pt,
-          intention_en = EXCLUDED.intention_en,
-          active = true
-      `,
-      [
-        snippet.id,
-        snippet.datasetId,
-        snippet.category,
-        snippet.language,
-        snippet.style,
-        snippet.sourceLanguage,
-        JSON.stringify(snippet.inheritedStyles),
-        snippet.label,
-        snippet.code,
-        snippet.intentionPt,
-        snippet.intentionEn,
-      ]
-    );
-  }
+  await client.query(`INSERT INTO snippets (id,dataset_id,category,language,style,source_language,inherited_styles,label,code,intention_pt,intention_en,active)
+    SELECT id, "datasetId", category, language, style, "sourceLanguage", "inheritedStyles", label, code, "intentionPt", "intentionEn", true
+    FROM jsonb_to_recordset($1::jsonb) AS x(id text,"datasetId" text,category text,language text,style text,"sourceLanguage" text,"inheritedStyles" jsonb,label text,code text,"intentionPt" text,"intentionEn" text)
+    ON CONFLICT (id) DO NOTHING`, [JSON.stringify(snippets)]);
 }
 
 async function insertComparisons(client) {
-  await client.query(
-    "UPDATE comparisons SET active = false WHERE dataset_id = $1",
-    [DATASET.id]
-  );
-
-  for (const comparison of comparisons) {
-    await client.query(
-      `
-        INSERT INTO comparisons (
-          id, dataset_id, category, snippet_a_id, snippet_b_id,
-          validation_notes, active
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, true)
-        ON CONFLICT (id) DO UPDATE SET
-          dataset_id = EXCLUDED.dataset_id,
-          category = EXCLUDED.category,
-          snippet_a_id = EXCLUDED.snippet_a_id,
-          snippet_b_id = EXCLUDED.snippet_b_id,
-          validation_notes = EXCLUDED.validation_notes,
-          active = true
-      `,
-      [
-        comparison.id,
-        comparison.datasetId,
-        comparison.category,
-        comparison.snippetAId,
-        comparison.snippetBId,
-        comparison.validationNotes,
-      ]
-    );
-  }
+  await client.query(`INSERT INTO comparisons (id,dataset_id,category,snippet_a_id,snippet_b_id,validation_notes,active)
+    SELECT id,"datasetId",category,"snippetAId","snippetBId","validationNotes",true
+    FROM jsonb_to_recordset($1::jsonb) AS x(id text,"datasetId" text,category text,"snippetAId" text,"snippetBId" text,"validationNotes" text)
+    ON CONFLICT (id) DO NOTHING`, [JSON.stringify(comparisons)]);
 }
 
 async function insertProfileQuestions(client) {

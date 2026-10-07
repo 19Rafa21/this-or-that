@@ -50,8 +50,8 @@ test("resultado final exige todas as respostas e é reconstruído a partir dos p
   assert.throws(() => buildFinalResult(apiComparisons, choices, [], profileQuestions, DATASET));
   const profile = profileQuestions.map((q) => ({ question_id: q.id, answer_value: "skipped" }));
   const result = buildFinalResult(apiComparisons, choices, profile, profileQuestions, DATASET);
-  assert.equal(result.winner.examples.length, 7);
-  assert.equal(result.winner.examples.at(-1).code, replayTournament(apiComparisons, choices).finalSnippet.code);
+  assert.equal(result.winner.examples, undefined);
+  assert.equal(result.winner.code, replayTournament(apiComparisons, choices).finalSnippet.code);
   assert.equal(result.protocolVersion, 4);
 });
 
@@ -67,7 +67,7 @@ test('ordens aleatórias e saltos mantêm sempre a composição válida', () => 
     const result = replayTournament(apiComparisons, game.choices);
     assert.equal(result.complete, true);
     assert.equal(game.choices.length, 14);
-    assert.deepEqual(result.finalSnippet.inherited_styles, { blocks: result.carriedStyles.blocks });
+    assert.deepEqual(result.finalSnippet.inherited_styles, Object.fromEntries(Object.entries(result.carriedStyles).filter(([key])=>key!=="functions")));
   }
 });
 
@@ -81,4 +81,14 @@ test('a versão anterior continua a completar oito escolhas e a devolver a compo
   assert.equal(result.winner.examples,undefined);
   assert.equal(result.winner.code,replayTournament(pairs,choices).finalSnippet.code);
   assert.equal(Object.keys(result.selectedStyles).length,3);
+});
+
+
+test('historical 2026.8 results still contain their original seven independent examples', async () => {
+  const legacy = await import('./datasets/2026-08.js');
+  const mapped = new Map(legacy.snippets.map(s => [s.id, { ...s, inherited_styles: s.inheritedStyles }]));
+  const pairs = legacy.comparisons.map(c => ({ ...c, snippet_a: mapped.get(c.snippetAId), snippet_b: mapped.get(c.snippetBId) }));
+  const { choices } = simulateGame(()=>'right',()=>0.999,{ comparisons: pairs, questions: legacy.profileQuestions });
+  const result=buildFinalResult(pairs,choices,legacy.profileQuestions.map(q=>({question_id:q.id,answer_value:'skipped'})),legacy.profileQuestions,legacy.DATASET);
+  assert.equal(result.winner.examples.length,7);
 });

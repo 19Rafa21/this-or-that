@@ -1,3 +1,4 @@
+import { comparisonIndex, contextComparisons, isCumulativeStudy } from "../src/game/comparisonIndex.js";
 import { getCategoryOrder, EXTENDED_CATEGORY_ORDER } from "../src/game/categoryOrder.js";
 export const CATEGORY_ORDER = EXTENDED_CATEGORY_ORDER;
 
@@ -19,7 +20,7 @@ function sameContext(snippet, styles) {
 
 // Skipping carries the left snippet for composition, not as a preference.
 export function replayTournament(comparisons, choices) {
-  const byId = new Map(comparisons.map((item) => [item.id, item]));
+  const byId = comparisonIndex(comparisons).byId;
   const carriedStyles = {};
   const selectedStyles = {};
   const categoryResults = [];
@@ -27,7 +28,7 @@ export function replayTournament(comparisons, choices) {
   let finalSnippet = null;
   for (const category of getCategoryOrder(comparisons)) {
     const available = new Map();
-    for (const comparison of comparisons.filter((item) => item.category === category)) {
+    for (const comparison of contextComparisons(comparisons, category, carriedStyles)) {
       for (const snippet of [comparison.snippet_a, comparison.snippet_b]) {
         if (sameContext(snippet, carriedStyles)) available.set(snippet.id, snippet);
       }
@@ -75,7 +76,7 @@ export function buildFinalResult(comparisons, choices, profileAnswers, questions
   const replay = replayTournament(comparisons, choices);
   check(replay.complete, "The tournament is not complete");
   check(questions.every((question) => profileAnswers.some((answer) => answer.question_id === question.id)), "Profile questions must be answered or explicitly skipped");
-  const examples = comparisons.some((c) => c.category === 'blocks') ? replay.categoryResults.map((category) => {
+  const examples = !isCumulativeStudy(comparisons) && comparisons.some((c) => c.category === 'blocks') ? replay.categoryResults.map((category) => {
     const snippet = comparisons.flatMap((c) => [c.snippet_a, c.snippet_b]).find((s) => s.id === category.carriedSnippetId);
     return { category: category.category, code: snippet.code, status: category.status };
   }) : null;

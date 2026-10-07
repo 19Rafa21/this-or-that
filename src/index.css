@@ -572,7 +572,7 @@ button {
 .code-grid {
   width: 100%;
   display: grid;
-  grid-template-columns: 500px 500px;
+  grid-template-columns: repeat(2, minmax(0, 500px));
   justify-content: center;
   gap: 72px;
 }
@@ -1117,3 +1117,11 @@ a:focus-visible {
 .dataset-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }
 .dataset-manager .dataset-confirm { flex-direction: row; align-items: flex-start; }
 .dataset-confirm input { width: auto; flex-shrink: 0; margin-top: .3rem; }
+
+.comparison-focus { margin: 0 0 12px; text-align: center; font-weight: 800; }
+.comparison-focus span { display: block; margin-top: 6px; font-size: .85rem; font-weight: 400; }
+.comparison-code-diff { max-height: 460px; overflow: auto; }
+.code-change { color: #25103d; background: #e6d5ff; border-bottom: 2px solid #9b70cf; border-radius: 2px; }
+
+.code-grid .code-area { height: auto; min-height: 280px; min-width: 0; overflow: hidden; display: flex; align-items: center; }
+.code-card-front { width: 100%; min-width: 0; }

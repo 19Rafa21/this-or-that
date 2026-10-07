@@ -1,3 +1,4 @@
+import { contextComparisons } from "./comparisonIndex.js";
 export const SKIPPED_VALUE = "skipped";
 // The profile changed with dataset 2026.6. Start a fresh local flow after upgrading;
 // previously submitted answers remain associated with their original dataset.
@@ -19,26 +20,13 @@ export function shuffleItems(items, random = Math.random) {
   return shuffled;
 }
 
-function hasInheritedStyles(snippet, selectedStyles) {
-  const inheritedStyles = snippet.inherited_styles || {};
-
-  return Object.entries(inheritedStyles).every(
-    ([category, style]) => selectedStyles[category] === style
-  );
-}
-
 export function buildCategoryTournament(
   comparisons,
   category,
   random,
   selectedStyles = {}
 ) {
-  const categoryComparisons = comparisons.filter(
-    (comparison) =>
-      comparison.category === category &&
-      hasInheritedStyles(comparison.snippet_a, selectedStyles) &&
-      hasInheritedStyles(comparison.snippet_b, selectedStyles)
-  );
+  const categoryComparisons = contextComparisons(comparisons, category, selectedStyles);
   const snippetsById = new Map();
   const comparisonsByPair = new Map();
 

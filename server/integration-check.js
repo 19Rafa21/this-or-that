@@ -41,7 +41,7 @@ try {
   await once(server, "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   const post = async (path, body, status = 201) => {
-    const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(path === "sessions" ? { ...body, clientStudyVersion: 2 } : body) });
+    const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(path === "sessions" ? { ...body, clientStudyVersion: 3 } : body) });
     const result = await response.json();
     assert.equal(response.status, status, `${path}: ${JSON.stringify(result)}`);
     return result;
@@ -51,7 +51,7 @@ try {
   assert.equal((await pool.query('SELECT count(*)::int AS n FROM game_sessions')).rows[0].n, 0);
   for (const skip of [false, true]) {
     const session = await post("sessions", { language: skip ? "en" : "pt" });
-    assert.equal(session.comparisons.length, 40);
+    assert.equal(session.comparisons.length, 6);
     assert.equal(session.profileQuestions.length, 5);
     await post("final-results", { sessionId: session.sessionId, result: { fake: true } }, 400);
     const { choices } = simulateGame(() => skip ? "skip" : "right");
@@ -61,7 +61,15 @@ try {
     await Promise.all([post("choices", payload(choices[0])), post("choices", payload(choices[0]))]);
     await post("choices", { ...payload(choices[0]), selectedSnippetId: "invented" }, 409);
     await post("choices", { ...payload(choices[1]), roundNumber: 8 }, 400);
-    for (const choice of choices.slice(1)) await post("choices", payload(choice));
+    let delivered = session.comparisons;
+    for (const choice of choices.slice(1)) {
+      assert.ok(delivered.some(pair => pair.id === choice.comparison_id), 'client has its next comparison');
+      const next = await post("choices", payload(choice));
+      assert.ok(next.comparisons.length <= 6);
+      const retry = await post("choices", payload(choice));
+      assert.deepEqual(retry, next);
+      delivered = next.comparisons;
+    }
     await post("final-results", { sessionId: session.sessionId }, 400);
     await post("profile-answers", { sessionId: session.sessionId, questionId: profileQuestions[0].id, answer: "invented" }, 400);
     for (const question of profileQuestions) {
@@ -75,7 +83,7 @@ try {
     }
     const final = await post("final-results", { sessionId: session.sessionId, result: { winner: { code: "forged" } } });
     assert.notEqual(final.result.winner.code, "forged");
-    assert.equal(final.result.winner.examples.length, 7);
+    assert.equal(final.result.winner.examples, undefined);
     assert.equal(final.result.hasSkippedComparisons, skip);
     if (skip) assert.ok(Object.values(final.result.selectedStyles).every((value) => value === null));
     const retry = await post("final-results", { sessionId: session.sessionId });
@@ -267,7 +275,7 @@ try {
   const updatedSession = await post('sessions', { language: 'pt' });
   assert.equal(updatedSession.datasetId, managed.active.id);
   assert.equal(updatedSession.profileQuestions[0].question_pt, 'Pergunta revista para teste');
-  assert.equal(updatedSession.comparisons.length, 40);
+  assert.equal(updatedSession.comparisons.length, 6);
   assert.equal((await pool.query('SELECT question_pt FROM profile_questions WHERE id=$1', [ongoing.profileQuestions[0].id])).rows[0].question_pt, originalQuestion);
   await post('profile-answers', { sessionId: ongoing.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' });
   await post('profile-answers', { sessionId: updatedSession.sessionId, questionId: ongoing.profileQuestions[0].id, answer: 'skipped' }, 400);

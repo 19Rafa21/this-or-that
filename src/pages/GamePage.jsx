@@ -1,3 +1,5 @@
+import ComparisonCode from "../components/ComparisonCode.jsx";
+import resultsTranslations from "../i18n/resultsTranslations.js";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout.jsx";
@@ -65,15 +67,17 @@ export default function GamePage({ language, setLanguage }) {
           pendingGameInitialization = null;
         }
 
-        const categoryOrder = getCategoryOrder(comparisonsFromApi);
+        const categoryOrder = session.categoryOrder || getCategoryOrder(comparisonsFromApi);
         const initialState = {
           stateVersion: GAME_STATE_VERSION,
+          categoryOrder,
+          progressive: Boolean(session.progressive),
           flow: buildInitialFlow(comparisonsFromApi, questionsFromApi, categoryOrder),
           comparisons: comparisonsFromApi,
           selectedStyles: {},
           categoryWinners: [],
           plannedProfileQuestions: questionsFromApi.length,
-          plannedCodeQuestions: countPlannedCodeQuestions(
+          plannedCodeQuestions: session.plannedCodeQuestions ?? countPlannedCodeQuestions(
             comparisonsFromApi,
             categoryOrder
           ),
@@ -224,12 +228,32 @@ export default function GamePage({ language, setLanguage }) {
         selectedCode: skipped ? "" : selectedSnippet.code,
         timestamp: new Date().toISOString(),
       };
+      const nextStep = gameState.flow[gameState.currentIndex + 1];
+      const continuesComparison = nextStep?.type === "code" &&
+        nextStep.category === currentStep.category;
+      const animate = continuesComparison &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const changingSide = choice === "right" ? "left" : "right";
+      if (animate) setCardTransition({ side: changingSide, phase: "out" });
+      const [saved] = await Promise.all([
+        saveChoice({
+          sessionId,
+          comparisonId: currentStep.id,
+          roundNumber: currentStep.comparisonNumber,
+          category: currentStep.category,
+          leftSnippetId: currentStep.leftSnippet.id,
+          rightSnippetId: currentStep.rightSnippet.id,
+          selectedSnippetId: answer.selectedSnippetId,
+        }).then((result) => { responseSaved = true; return result; }),
+        ...(animate ? [new Promise((resolve) => setTimeout(resolve, 240))] : []),
+      ]);
+      const availableComparisons = [...new Map([...gameState.comparisons, ...(saved.comparisons || [])].map(pair => [pair.id, pair])).values()];
       const resolution = resolveCumulativeChoice({
         flow: gameState.flow,
         currentIndex: gameState.currentIndex,
         selectedSnippet,
-        comparisons: gameState.comparisons,
-        categoryOrder: getCategoryOrder(gameState.comparisons),
+        comparisons: availableComparisons,
+        categoryOrder: gameState.categoryOrder || getCategoryOrder(gameState.comparisons),
         selectedStyles: gameState.selectedStyles,
         nextRoundNumber: gameState.answers.length + 2,
       });
@@ -240,6 +264,7 @@ export default function GamePage({ language, setLanguage }) {
       const updatedState = {
         ...gameState,
         flow: resolution.flow,
+        comparisons: availableComparisons,
         // This is the composition context; confirmed preferences come from the API.
         selectedStyles: resolution.selectedStyles,
         answers,
@@ -248,25 +273,6 @@ export default function GamePage({ language, setLanguage }) {
           : gameState.categoryWinners,
         dreamCode: resolution.categoryFinished ? [selectedSnippet] : gameState.dreamCode,
       };
-      const nextStep = resolution.flow[gameState.currentIndex + 1];
-      const continuesComparison = nextStep?.type === "code" &&
-        nextStep.category === currentStep.category;
-      const animate = continuesComparison &&
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const changingSide = choice === "right" ? "left" : "right";
-      if (animate) setCardTransition({ side: changingSide, phase: "out" });
-      await Promise.all([
-        saveChoice({
-          sessionId,
-          comparisonId: currentStep.id,
-          roundNumber: currentStep.comparisonNumber,
-          category: currentStep.category,
-          leftSnippetId: currentStep.leftSnippet.id,
-          rightSnippetId: currentStep.rightSnippet.id,
-          selectedSnippetId: answer.selectedSnippetId,
-        }).then(() => { responseSaved = true; }),
-        ...(animate ? [new Promise((resolve) => setTimeout(resolve, 240))] : []),
-      ]);
       await goToNextStep(updatedState);
       if (animate) {
         setCardTransition({ side: changingSide, phase: "in" });
@@ -355,8 +361,9 @@ export default function GamePage({ language, setLanguage }) {
         ) : currentStep.type === "code" ? (
           <>
             <h2 className="game-question">{dynamicQuestion}</h2>
+            <p className="comparison-focus">{text.comparing}: {resultsTranslations[language].categories[currentStep.category]} <span>{text.highlightNote}</span></p>
             <p className="game-context">
-              {currentStep.leftSnippet[`intention_${language}`]} {getCategoryOrder(gameState.comparisons).length > 3 ? text.independentNote : text.contextNote}
+              {currentStep.leftSnippet[`intention_${language}`]} {gameState.progressive ? text.cumulativeNote : getCategoryOrder(gameState.comparisons).length > 3 ? text.independentNote : text.contextNote}
             </p>
 
             <div className="code-grid">
@@ -375,7 +382,7 @@ export default function GamePage({ language, setLanguage }) {
                   >
                     <span className="code-card-front">
                       <span className="code-card-status">{selected ? text.selectedCard : "\u00a0"}</span>
-                      <pre className="comparison-code"><code>{snippet.code}</code></pre>
+                      <ComparisonCode code={snippet.code} otherCode={side === "left" ? currentStep.rightSnippet.code : currentStep.leftSnippet.code} />
                     </span>
                     <span className="code-card-back" aria-hidden="true">{text.saving}</span>
                   </button>

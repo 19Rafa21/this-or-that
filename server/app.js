@@ -1,3 +1,6 @@
+import { isCumulativeStudy, contextComparisons } from "../src/game/comparisonIndex.js";
+import { getCategoryOrder } from "../src/game/categoryOrder.js";
+import { countPlannedCodeQuestions } from "../src/game/gameUtils.js";
 import express from "express";
 import { createDatasetLoader } from "./dataset-cache.js";
 import { timedDatabase, timingHeader } from "./request-timing.js";
@@ -15,7 +18,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   const loadDataset = createDatasetLoader();
   const origins = process.env.ALLOWED_ORIGINS?.split(",").map((value) => value.trim());
   app.use(cors(origins ? { origin: origins } : {}));
-  app.use("/api/admin/datasets", adminAuth.authorize, express.json({ limit: "2mb" }));
+  app.use("/api/admin/datasets", adminAuth.authorize, express.json({ limit: "10mb" }));
   app.use(express.json({ limit: "100kb" }));
   app.disable("x-powered-by");
 
@@ -64,7 +67,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
 
   app.get("/api/health", route(async (_req, res, database) => {
     const active = (await database.query("SELECT version FROM datasets WHERE active")).rows[0];
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 1, studyVersion: 2 });
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 1, studyVersion: 3 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {
@@ -73,11 +76,11 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
     const dataset = (await database.query("SELECT id, version FROM datasets WHERE active")).rows[0];
     if (!dataset) throw new InputError("The current dataset must be seeded before starting the game", 503);
     const content = await loadDataset(database, dataset.id);
-    if (content.comparisons.some((c) => c.category === "blocks") && req.body?.clientStudyVersion !== 2) throw new InputError("Please reload the page to use the updated questionnaire", 426);
+    if (content.comparisons.some((c) => c.category === "blocks") && !((isCumulativeStudy(content.comparisons) ? [3] : [2, 3]).includes(req.body?.clientStudyVersion))) throw new InputError("Please reload the page to use the updated questionnaire", 426);
     replayTournament(content.comparisons, []);
     const id = randomBytes(16).toString("hex");
     await database.query("INSERT INTO game_sessions (id, dataset_id, interface_language) VALUES ($1, $2, $3)", [id, dataset.id, language]);
-    res.status(201).json({ sessionId: id, datasetId: dataset.id, datasetVersion: dataset.version, ...content });
+    res.status(201).json({ sessionId: id, datasetId: dataset.id, datasetVersion: dataset.version, ...content, ...(isCumulativeStudy(content.comparisons) ? { progressive: true, categoryOrder: getCategoryOrder(content.comparisons), plannedCodeQuestions: countPlannedCodeQuestions(content.comparisons, getCategoryOrder(content.comparisons)), comparisons: contextComparisons(content.comparisons, "variables") } : {}) });
   }));
 
   for (const path of ["/api/comparisons", "/api/v2/profile-questions", "/api/profile-questions", "/api/snippets"]) {
@@ -101,7 +104,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
     };
     const existing = choices.find((item) => item.round_number === choice.round_number);
     if (existing) {
-      if (Object.entries(choice).every(([key, value]) => existing[key] === value)) return { ok: true };
+      if (Object.entries(choice).every(([key, value]) => existing[key] === value)) return choiceResponse(comparisons, choices);
       throw new InputError("This round was already saved with another choice", 409);
     }
     if (session.finished_at) throw new InputError("Session already finished", 409);
@@ -113,7 +116,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [session.id, choice.comparison_id, choice.round_number,
       choice.category, choice.left_snippet_id, choice.right_snippet_id, choice.selected_snippet_id,
       selected?.language || null, selected?.style || null, choice.skipped]);
-    return { ok: true };
+    return choiceResponse(comparisons, [...choices, choice]);
   }));
 
   app.post("/api/profile-answers", sessionRoute(async (body, client, session, { profileQuestions }) => {
@@ -158,4 +161,11 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
     res.status(status).json({ error: status === 500 ? "Could not complete request" : error.message });
   });
   return app;
+}
+
+function choiceResponse(comparisons, choices) {
+  if (!isCumulativeStudy(comparisons)) return { ok: true };
+  const replay = replayTournament(comparisons, choices);
+  const category = getCategoryOrder(comparisons)[replay.categoryResults.length];
+  return { ok: true, comparisons: category ? contextComparisons(comparisons, category, replay.carriedStyles) : [] };
 }

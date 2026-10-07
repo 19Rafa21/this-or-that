@@ -9,11 +9,13 @@ export default function DatasetManager({ token, onActivated, language }) {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [review, setReview] = useState(false);
+  const [examplePage, setExamplePage] = useState(0);
+  const pageSize = 24;
   const [confirmed, setConfirmed] = useState(false);
   const en = language === 'en';
   const t = (pt, english) => en ? english : pt;
   const labels = resultsTranslations[language];
-  const exampleTitle = (s) => `${labels.categories[s.category] || s.category} · ${s.label}${Object.values(s.inherited_styles).length ? ` · ${Object.values(s.inherited_styles).map((style) => labels.styles[style] || style).join(' / ')}` : ''}`;
+  const exampleTitle = (s) => `${labels.categories[s.category] || s.category} · ${labels.styles[s.style] || s.label}${Object.values(s.inherited_styles).length ? ` · ${Object.values(s.inherited_styles).map((style) => labels.styles[style] || style).join(' / ')}` : ''}`;
   useEffect(() => {
     let cancelled = false;
     manageDataset(token).then((result) => {
@@ -52,6 +54,10 @@ export default function DatasetManager({ token, onActivated, language }) {
       <p>{t('Edita os textos, as opções e os exemplos. A estrutura das comparações e os identificadores das opções são preservados.', 'Edit wording, option labels and examples. Comparison structure and option identifiers are preserved.')}</p>
       <label>{t('Nome do novo dataset', 'New dataset name')}<input maxLength={80} value={content.version} onChange={(e) => edit({ ...content, version: e.target.value })} /></label>
       <label>{t('Descrição das alterações', 'Description of changes')}<textarea maxLength={2000} value={content.description} onChange={(e) => edit({ ...content, description: e.target.value })} /></label>
+      <p>{t('Página de exemplos', 'Examples page')} {examplePage + 1} / {Math.max(1, Math.ceil(content.snippets.length / pageSize))}
+        <button disabled={examplePage === 0} onClick={() => setExamplePage(p => p - 1)}>{t('Anterior', 'Previous')}</button>
+        <button disabled={(examplePage + 1) * pageSize >= content.snippets.length} onClick={() => setExamplePage(p => p + 1)}>{t('Seguinte', 'Next')}</button>
+      </p>
       {!review && <>
         <h3>{t('Perguntas de perfil', 'Profile questions')}</h3>
         {content.questions.map((q, i) => <details key={q.id}><summary>{i + 1}. {q[`question_${language}`]}</summary>
@@ -61,10 +67,10 @@ export default function DatasetManager({ token, onActivated, language }) {
         <h3>{t('Exemplos de código', 'Code examples')}</h3>
         <p>{t('Existem várias combinações cumulativas. Revê também os exemplos que incluem escolhas das etapas anteriores.', 'Examples are cumulative. Also review combinations containing choices from earlier stages.')}</p>
         <details><summary>{t('Abrir exemplos', 'Open examples')} ({content.snippets.length})</summary>
-        {content.snippets.map((s, i) => <details key={s.id}><summary>{exampleTitle(s)}</summary>
-          <label>{t('Designação', 'Label')}<input maxLength={2000} value={s.label} onChange={(e) => changeRow('snippets', i, 'label', e.target.value)} /></label>
-          <label>{t('Código', 'Code')}<textarea className="dataset-code" maxLength={20000} value={s.code} onChange={(e) => changeRow('snippets', i, 'code', e.target.value)} /></label>
-          {['pt', 'en'].map((lang) => <label key={lang}>{t('Objetivo', 'Intention')} ({lang.toUpperCase()})<textarea maxLength={2000} value={s[`intention_${lang}`]} onChange={(e) => changeRow('snippets', i, `intention_${lang}`, e.target.value)} /></label>)}
+        {content.snippets.slice(examplePage * pageSize, (examplePage + 1) * pageSize).map((s, offset) => <details key={s.id}><summary>{exampleTitle(s)}</summary>
+          <label>{t('Designação', 'Label')}<input maxLength={2000} value={s.label} onChange={(e) => changeRow('snippets', examplePage * pageSize + offset, 'label', e.target.value)} /></label>
+          <label>{t('Código', 'Code')}<textarea className="dataset-code" maxLength={20000} value={s.code} onChange={(e) => changeRow('snippets', examplePage * pageSize + offset, 'code', e.target.value)} /></label>
+          {['pt', 'en'].map((lang) => <label key={lang}>{t('Objetivo', 'Intention')} ({lang.toUpperCase()})<textarea maxLength={2000} value={s[`intention_${lang}`]} onChange={(e) => changeRow('snippets', examplePage * pageSize + offset, `intention_${lang}`, e.target.value)} /></label>)}
         </details>)}
         </details>
       </>}
@@ -72,7 +78,7 @@ export default function DatasetManager({ token, onActivated, language }) {
       {review && <section><h3>{t('Rever antes de ativar', 'Review before activation')}</h3>
         <p>{t('A validação verifica o preenchimento e a estrutura. Confirma o significado das perguntas e a coerência do código em todas as combinações.', 'Validation checks required fields and structure. Verify question meaning and code consistency in every combination.')}</p>
         {content.questions.map((q) => <details key={q.id}><summary>{q[`question_${language}`]}</summary>{['pt', 'en'].map((lang) => <div key={lang}><h4>{q[`question_${lang}`]}</h4><ul>{q.options.map((o) => <li key={o.value}>{o[lang]}</li>)}</ul></div>)}</details>)}
-        {content.snippets.map((s) => <details key={s.id}><summary>{exampleTitle(s)}</summary><p>{s.intention_pt}</p><p>{s.intention_en}</p><pre>{s.code}</pre></details>)}
+        {content.snippets.slice(examplePage * pageSize, (examplePage + 1) * pageSize).map((s) => <details key={s.id}><summary>{exampleTitle(s)}</summary><p>{s.intention_pt}</p><p>{s.intention_en}</p><pre>{s.code}</pre></details>)}
         <label className="dataset-confirm"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />{t('Revi o conteúdo e quero iniciar a recolha neste novo dataset. Os resultados gerais passarão a mostrar este dataset, inicialmente sem respostas.', 'I reviewed the content and want to start collecting responses in this new dataset. Public results will show it, initially with no responses.')}</label>
         <button disabled={!confirmed} onClick={() => run('activate')}>{t('Ativar novo dataset', 'Activate new dataset')}</button>
         <button onClick={() => { setReview(false); setConfirmed(false); }}>{t('Voltar a editar', 'Back to editing')}</button>

@@ -42,7 +42,7 @@ export function getProfileQuestions() {
 export function createSession(language) {
   return request("/api/sessions", {
     method: "POST",
-    body: JSON.stringify({ language, clientStudyVersion: 2 }),
+    body: JSON.stringify({ language, clientStudyVersion: 3 }),
   });
 }
 
