@@ -17,7 +17,7 @@ export default function LanguageToggle({ language, setLanguage }) {
         title={labels.pt}
         aria-pressed={language === "pt"}
       >
-        🇵🇹
+        PT
       </button>
 
       <button
@@ -28,7 +28,7 @@ export default function LanguageToggle({ language, setLanguage }) {
         title={labels.en}
         aria-pressed={language === "en"}
       >
-        🇬🇧
+        EN
       </button>
     </div>
   );

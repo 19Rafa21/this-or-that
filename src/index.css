@@ -802,15 +802,6 @@ button {
   margin-bottom: 0;
 }
 
-.trophy-shape {
-  position: fixed;
-  top: 32px;
-  right: 82px;
-  z-index: 1;
-  font-size: 9.5rem;
-  transform: rotate(-22deg);
-  filter: drop-shadow(0 8px 0 rgba(0, 0, 0, 0.22));
-}
 
 
 /* =========================
@@ -902,11 +893,6 @@ button {
     width: 100%;
   }
 
-  .trophy-shape {
-    font-size: 6rem;
-    right: 30px;
-    top: 70px;
-  }
 }
 
 

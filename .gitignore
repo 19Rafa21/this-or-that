@@ -27,3 +27,6 @@ server/backups/
 *.njsproj
 *.sln
 *.sw?
+
+# Local-only design demonstrations
+.preview/

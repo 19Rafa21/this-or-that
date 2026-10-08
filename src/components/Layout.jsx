@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import LanguageToggle from "./LanguageToggle.jsx";
 import BackgroundBraces from "./BackgroundBraces.jsx";
 import SmallNavButton from "./SmallNavButton.jsx";
@@ -14,6 +14,9 @@ export default function Layout({
   bracesVariant = "default",
 }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
 
   useEffect(() => {
     const commonText = translations[language].common;
@@ -26,7 +29,7 @@ export default function Layout({
   }, [language]);
 
   return (
-    <main className="app-page" id="main-content">
+    <main className={`app-page page-${bracesVariant}`} id="main-content">
       <LanguageToggle language={language} setLanguage={setLanguage} />
 
       {showAbout && (
