@@ -51,6 +51,9 @@ export async function loadStudyResults(pool, filters, { activeOnly = false } = {
   try {
     await client.query("BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
     const datasets = (await client.query(`SELECT d.id, d.version, d.active,
+      COALESCE((SELECT jsonb_object_agg(option->>'id', jsonb_build_object('pt', option->>'pt', 'en', option->>'en'))
+        FROM (SELECT DISTINCT presentation FROM comparisons WHERE dataset_id=d.id AND active) definitions
+        CROSS JOIN LATERAL jsonb_array_elements(COALESCE(definitions.presentation->'customOptions', '[]'::jsonb)) option), '{}'::jsonb) AS style_labels,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('category', stages.category, 'display_order', stages.display_order) ORDER BY stages.display_order, stages.category)
         FROM (SELECT category, min(display_order) AS display_order FROM comparisons WHERE dataset_id=d.id AND active GROUP BY category) stages), '[]'::jsonb) AS stages,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('id', q.id, 'question_pt', q.question_pt,
@@ -101,7 +104,7 @@ export async function loadStudyResults(pool, filters, { activeOnly = false } = {
       WHERE f.result_json->>'protocolVersion' = '4' AND e.finished_at IS NOT NULL
       GROUP BY category.key, category.value ORDER BY category.key, category.value`, params)).rows;
     await client.query("COMMIT");
-    return { datasetId: selected.id, datasetVersion: selected.version, datasets,
+    return { styleLabels: selected.style_labels || {}, datasetId: selected.id, datasetVersion: selected.version, datasets,
       categoryOrder: selected.stages ? getCategoryOrder(selected.stages) : getCategoryOrder([...preferences, ...finals, ...skips]),
       generatedAt: new Date().toISOString(), filters: { ...filters, datasetId: selected.id },
       population, summary, profile, preferences, skips, finals };
@@ -117,6 +120,7 @@ export async function loadPublicResults(pool) {
   return {
     generatedAt: data.generatedAt,
     categoryOrder: data.categoryOrder,
+    styleLabels: data.styleLabels,
     summary: { started: data.summary.started, completed: data.summary.completed, unfinished: data.summary.unfinished },
     profile: data.profile.map((question) => ({
       question_pt: question.question_pt, question_en: question.question_en,

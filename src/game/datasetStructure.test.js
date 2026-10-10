@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { newStage, generateStructure, renderOrderedCode } from './datasetStructure.js';
+import { newStage, generateStructure, renderOrderedCode, stagesFromSource } from './datasetStructure.js';
 import { getCategoryOrder } from './categoryOrder.js';
 import { buildFinalResult, replayTournament } from '../../server/tournament.js';
 import { simulateGame } from '../../server/test-fixtures.js';
@@ -45,4 +45,19 @@ test('many profile questions have valid boundaries and preserve order', () => {
   const { flow } = simulateGame(() => 'right', () => .99, { comparisons, questions });
   assert.deepEqual(flow.filter(s => s.type === 'profile').map(s => s.id), questions.map(q => q.id));
   assert.equal(flow.length, stages.reduce((n, s) => n + s.styles.length - 1, 0) + questions.length);
+});
+
+test('a custom alternative participates in every round and reaches the final code and labels', () => {
+  const stages = ['variables', 'loops'].map(newStage);
+  const option = {id:'custom_let',pt:'Com let',en:'With let',baseStyle:'java_style',from:'var ',to:'let '};
+  stages[0].customOptions = [option]; stages[0].styles = ['c_style',option.id];
+  stages[1].styles = ['loop_while','loop_for_counter'];
+  const comparisons = api(stages);
+  const restored = stagesFromSource(comparisons.flatMap(c => [c.snippet_a,c.snippet_b]), comparisons);
+  assert.deepEqual(restored[0].customOptions, [option]);
+  const {choices} = simulateGame((_index, step) => step.rightSnippet.style === option.id ? 'right' : step.leftSnippet.style === option.id ? 'left' : 'right', () => .99, {comparisons,questions:[]});
+  const result = buildFinalResult(comparisons,choices,[],[],{id:'custom',version:'custom'});
+  assert.equal(result.selectedStyles.variables, option.id);
+  assert.ok(result.winner.code.includes('let i = 0;'));
+  assert.equal(result.winner.styleLabels[option.id].pt, 'Com let');
 });

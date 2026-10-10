@@ -1,0 +1,53 @@
+.dataset-manager { padding: clamp(16px, 2vw, 32px); background: #fbf9fe; border: 1px solid #e4daef; box-shadow: none; border-radius: 6px; }
+.dataset-manager > summary { font-size: 1.2rem; }
+.dataset-active { padding: 12px 0; border-radius: 0; border-bottom: 1px solid #ded5ea; background: transparent; margin: 16px 0; }
+.dataset-active h2 { margin: 0 0 8px; font-size: 1.1rem; }
+.dataset-active p { margin: 5px 0; font-size: .85rem; }
+.dataset-editor { border: 0; padding: 0; }
+.dataset-editor > legend { font-weight: 800; font-size: 1.1rem; }
+.dataset-editor-tabs { display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid #ded5ea; padding-bottom: 12px; margin-bottom: 22px; }
+.dataset-manager .dataset-editor-tabs button { background: transparent; color: #695278; margin: 0; font-weight: 700; }
+.dataset-manager .dataset-editor-tabs button[aria-pressed=true] { background: transparent; color: #542983; box-shadow: inset 0 -2px #7642a8; border-radius: 0; }
+.dv-stage-list { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 18px; }
+.dataset-manager .dv-stage-list button { flex-shrink: 0; margin: 0; background: transparent; color: #594568; border: 0; border-radius: 3px; display: flex; align-items: center; gap: 10px; font-size: .82rem; }
+.dv-stage-list button span { color: #9275aa; font-size: .7rem; }
+.dataset-manager .dv-stage-list button[aria-pressed=true] { background: #efe4ff; border-color: #9f75cf; color: #4b2375; }
+.dv-workspace { display: grid; grid-template-columns: minmax(240px, .7fr) minmax(0, 1.65fr); gap: 24px; align-items: start; }
+.dv-controls { border: 0; background: transparent; padding: 0; border-radius: 0; min-width: 0; }
+.dv-eyebrow { text-transform: uppercase; font-size: .62rem; letter-spacing: .12em; color: #806690; font-weight: 800; }
+.dv-controls h3 { margin: 8px 0 18px; }
+.dv-segment { display: flex; padding: 3px; border-radius: 3px; background: #f3eff8; gap: 3px; margin-bottom: 12px; }
+.dataset-manager .dv-segment button { flex: 1; margin: 0; background: transparent; color: #786187; padding: 8px; font-size: .75rem; }
+.dataset-manager .dv-segment button[aria-pressed=true] { background: white; color: #472660; box-shadow: none; border-radius: 2px; }
+.dv-controls label, .dv-scenario label { font-size: .78rem; font-weight: 750; }
+.dataset-manager .dv-controls textarea { font-size: .85rem; line-height: 1.55; border-color: #d8cce3; min-height: 85px; }
+.dataset-manager .dv-controls textarea.dataset-code { min-height: 330px; font-size: .8rem; }
+.dv-help { font-size: .75rem; color: #806d8b; line-height: 1.7; }
+.dv-preview-column { min-width: 0; }
+.dv-preview-toolbar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 0 2px 12px; font-size: .75rem; color: #725881; }
+.dv-preview-toolbar > span { font-weight: 800; }
+.dv-preview-toolbar i { display: inline-block; width: 7px; height: 7px; background: #548943; border-radius: 50%; margin-right: 7px; }
+.dv-comparison { background: #191127; color: #faf7ff; border-radius: 5px; padding: clamp(18px, 2.3vw, 34px); overflow: hidden; }
+.dv-brand { display: block; color: #ceb6ec; font-size: .78rem; font-weight: 800; margin-bottom: 28px; }
+.dv-brand > span { float: right; color: #d1edaa; }
+.dv-comparison .game-question { font-size: clamp(1.2rem, 2vw, 1.8rem); text-align: center; margin: 0 0 15px; overflow-wrap: anywhere; }
+.dv-comparison .comparison-focus { font-size: .75rem; }
+.dv-comparison .game-context { font-size: .75rem; text-align: center; margin: 10px 0 24px; overflow-wrap: anywhere; }
+.dv-comparison .code-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; width: 100%; }
+.dv-comparison .code-area { min-width: 0; padding: 12px; height: auto; min-height: 140px; background: #15101e; border: 1px solid #5b466d; border-radius: 4px; }
+.dataset-manager .dv-comparison pre { background: transparent; color: white; font-size: .76rem; line-height: 1.7; padding: 0; margin: 0; white-space: pre; overflow-wrap: normal; max-height: 360px; text-align: left; }
+.dv-preview-note { color: #b6a4ca; text-align: center; font-size: .65rem; margin: 22px 0 0; }
+.dv-scenario { padding: 0; margin-top: 16px; background: transparent; }
+.dv-scenario > strong { font-size: .85rem; }
+.dv-scenario > p { font-size: .75rem; color: #806d8b; margin: 6px 0 12px; }
+.dv-scenario select { width: 100%; min-width: 0; font-size: .75rem; }
+.dv-pair-selectors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.dataset-manager :is(button, textarea, input, select):focus-visible { outline: 3px solid #ad84db; outline-offset: 3px; }
+@media(max-width: 1000px) { .dv-workspace { grid-template-columns: 1fr; } }
+@media(max-width: 560px) { .dv-comparison .code-grid, .dv-pair-selectors { grid-template-columns: 1fr; } .dv-comparison { padding: 18px 12px; } .dataset-manager { padding: 14px; } }
+.dv-context { border: 0; padding: 0; margin: 18px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0 12px; }
+.dv-context legend { font-size: .75rem; font-weight: 750; padding: 0; color: #725881; }
+
+.dataset-manager .dv-advanced { margin-top: 24px; }
+.dataset-manager .dv-advanced > summary { font-size: .8rem; color: #725881; }
+.dataset-manager button { border-radius: 4px; }

@@ -67,7 +67,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
 
   app.get("/api/health", route(async (_req, res, database) => {
     const active = (await database.query("SELECT version FROM datasets WHERE active")).rows[0];
-    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 2, studyVersion: 3 });
+    res.json({ ok: true, database: "connected", protocolVersion: 4, datasetVersion: active?.version || null, resultsVersion: 4, datasetManagementVersion: 3, studyVersion: 3 });
   }));
 
   app.post("/api/sessions", route(async (req, res, database) => {

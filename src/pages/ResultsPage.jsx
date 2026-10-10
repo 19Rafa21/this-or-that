@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { getCategoryOrder } from "../game/categoryOrder.js";
 import { useEffect, useRef, useState } from "react";
 import DatasetManager from "../components/DatasetManager.jsx";
@@ -8,9 +9,10 @@ import { profileRows, preferenceRows, profileFilterLabels } from "../results/res
 import { adminLogin, adminLogout, getStudyResults } from "../api.js";
 
 export default function ResultsPage({ language, setLanguage }) {
-  const text = resultsTranslations[language];
+  const navigate = useNavigate();
   const [auth, setAuth] = useState(null);
   const [data, setData] = useState(null);
+  const text = { ...resultsTranslations[language], styles: { ...resultsTranslations[language].styles, ...Object.fromEntries(Object.entries(data?.styleLabels || {}).map(([id, names]) => [id, names[language]])) } };
   const [datasets, setDatasets] = useState([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,7 +85,10 @@ export default function ResultsPage({ language, setLanguage }) {
     <section className="results-page">
       <header className="results-header"><div><p className="results-eyebrow">{text.private}</p>
         <h1>{text.title}</h1><p>{text.intro}</p></div>
-        {auth && <button type="button" onClick={logout}>{text.logout}</button>}
+        <div className="results-admin-actions">
+          <button type="button" onClick={() => navigate('/')}>{language === 'pt' ? 'Voltar ao jogo' : 'Back to game'}</button>
+          {auth && <button type="button" onClick={logout}>{text.logout}</button>}
+        </div>
       </header>
       {!auth ? <form className="results-login" onSubmit={login}>
         <h2>{text.loginTitle}</h2><p>{text.loginNote}</p>

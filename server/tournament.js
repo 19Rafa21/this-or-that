@@ -1,3 +1,4 @@
+import { customStyleLabels } from '../src/game/datasetStructure.js';
 import { comparisonIndex, contextComparisons, isCumulativeStudy } from "../src/game/comparisonIndex.js";
 import { getCategoryOrder, EXTENDED_CATEGORY_ORDER } from "../src/game/categoryOrder.js";
 export const CATEGORY_ORDER = EXTENDED_CATEGORY_ORDER;
@@ -85,7 +86,7 @@ export function buildFinalResult(comparisons, choices, profileAnswers, questions
     protocolVersion: 4, datasetId: dataset.id, datasetVersion: dataset.version,
     selectedStyles: replay.selectedStyles, carriedStyles: replay.carriedStyles,
     categoryResults: replay.categoryResults, hasSkippedComparisons,
-    winner: { language: "text", code: examples ? examples.map((e) => `${e.category}\n${e.code}`).join("\n\n") : replay.finalSnippet.code, ...(examples ? { examples } : {}), selectedStyles: replay.selectedStyles,
+    winner: { styleLabels: customStyleLabels(comparisons.map(c => c.presentation || {})), language: "text", code: examples ? examples.map((e) => `${e.category}\n${e.code}`).join("\n\n") : replay.finalSnippet.code, ...(examples ? { examples } : {}), selectedStyles: replay.selectedStyles,
       carriedStyles: replay.carriedStyles, hasSkippedComparisons },
     answers: choices, profileAnswers,
   };

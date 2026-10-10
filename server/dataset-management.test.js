@@ -52,3 +52,43 @@ test('draft rejects malformed, duplicate, incomplete or missing graph content', 
     assert.throws(() => validateDraft(content, source), error => error.status === 400);
   }
 });
+
+test('custom alternatives propagate through later stages and retain bilingual names', () => {
+  const content = draft();
+  const option = { id: 'custom_let', pt: 'Declaração com let', en: 'Let declaration', baseStyle: 'java_style', from: 'var ', to: 'let ' };
+  content.stages[0].customOptions = [option];
+  content.stages[0].styles.push(option.id);
+  Object.assign(content, { generated: true, structureKey: structureKey(content.stages), snippets: generateStructure(content.stages).snippets });
+  assert.doesNotThrow(() => validateDraft(content, source));
+  const later = content.snippets.filter(s => s.category === 'loops' && s.inherited_styles.variables === option.id);
+  assert.equal(later.length, 3);
+  assert.ok(later.every(s => s.code.includes('let i = 0;') && !s.code.includes('var ')));
+  assert.equal(content.snippets.find(s => s.style === option.id).label, option.pt);
+  content.stages[0].customOptions[0].to = 'const ';
+  assert.throws(() => validateDraft(content, source), /Regenera/);
+});
+
+test('custom alternatives reject missing matches, invalid definitions and excessive graphs', () => {
+  for (const patch of [{from: 'missing fragment'}, {pt: ''}, {to: 'var '}, {baseStyle: 'custom_other'}, {id: '__proto__'}]) {
+    const content = draft();
+    const option = {id: 'custom_let', pt: 'Let', en: 'Let', baseStyle: 'java_style', from: 'var ', to: 'let ', ...patch};
+    content.stages[0].customOptions = [option]; content.stages[0].styles.push(option.id);
+    content.generated = true; content.structureKey = structureKey(content.stages);
+    assert.throws(() => validateDraft(content, source), error => error.status === 400);
+  }
+  const many = ['variables','blocks','loops','conditionals','assignments','logical','functions'].map(newStage);
+  for (const stage of many) {
+    stage.customOptions = Array.from({length: 8}, (_, i) => ({id:`custom_${stage.category}-${i}`,pt:`Opção ${i}`,en:`Option ${i}`,baseStyle:stage.styles[0],from:'i',to:`i${i}`}));
+    stage.styles.push(...stage.customOptions.map(o => o.id));
+  }
+  assert.throws(() => validateDraft({...draft(),stages:many},source), /Demasiadas/);
+});
+
+test('custom structure keys survive JSONB property reordering', () => {
+  const content = draft();
+  content.stages[0].customOptions = [{id:'custom_let',pt:'Let',en:'Let',baseStyle:'java_style',from:'var ',to:'let '}];
+  content.stages[0].styles.push('custom_let');
+  Object.assign(content, {generated:true,structureKey:structureKey(content.stages),snippets:generateStructure(content.stages).snippets});
+  content.stages[0].customOptions = content.stages[0].customOptions.map(o => Object.fromEntries(Object.entries(o).reverse()));
+  assert.doesNotThrow(() => validateDraft(content, source));
+});

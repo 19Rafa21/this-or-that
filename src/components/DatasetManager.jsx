@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import resultsTranslations from '../i18n/resultsTranslations.js';
 import { manageDataset } from '../api.js';
 import { StageEditor, ProfileEditor } from './DatasetStructureEditor.jsx';
-import { structureKey } from '../game/datasetStructure.js';
+import DatasetVisualEditor from './DatasetVisualEditor.jsx';
+import { structureKey, customStyleLabels } from '../game/datasetStructure.js';
 
 export default function DatasetManager({ token, onActivated, language }) {
   const [state, setState] = useState(null);
@@ -11,6 +12,7 @@ export default function DatasetManager({ token, onActivated, language }) {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const [review, setReview] = useState(false);
+  const [editorTab, setEditorTab] = useState('visual');
   const [examplePage, setExamplePage] = useState(0);
   const pageSize = 24;
   const [originalStructure, setOriginalStructure] = useState('');
@@ -18,7 +20,7 @@ export default function DatasetManager({ token, onActivated, language }) {
   const [confirmed, setConfirmed] = useState(false);
   const en = language === 'en';
   const t = (pt, english) => en ? english : pt;
-  const labels = resultsTranslations[language];
+  const labels = { ...resultsTranslations[language], styles: { ...resultsTranslations[language].styles, ...Object.fromEntries(Object.entries(customStyleLabels(content?.stages || [])).map(([id, names]) => [id, names[language]])) } };
   const exampleTitle = (s) => `${labels.categories[s.category] || s.category} · ${labels.styles[s.style] || s.label}${Object.values(s.inherited_styles).length ? ` · ${Object.values(s.inherited_styles).map((style) => labels.styles[style] || style).join(' / ')}` : ''}`;
   useEffect(() => {
     let cancelled = false;
@@ -43,10 +45,7 @@ export default function DatasetManager({ token, onActivated, language }) {
   }
   const structureChanged = content && structureKey(content.stages) !== originalStructure;
   function edit(next) { setContent(next); setReview(false); setConfirmed(false); setSaved(false); }
-  function changeRow(key, index, field, value) {
-    edit({ ...content, [key]: content[key].map((row, i) => i === index ? { ...row, [field]: value } : row) });
-  }
-  return <details className="dataset-manager"><summary>{t('Gerir dataset ativo', 'Manage active dataset')}</summary>
+  return <details className="dataset-manager"><summary>{t('Editar dataset', 'Edit dataset')}</summary>
     {error && <p role="alert" className="results-error">{error}</p>}
     {!state && !error && <p>{t('A carregar…', 'Loading…')}</p>}
     {state?.active && <div className="dataset-active"><h2>{t('Dataset ativo', 'Active dataset')}: {state.active.version}</h2>
@@ -56,30 +55,27 @@ export default function DatasetManager({ token, onActivated, language }) {
     <p>{t('As alterações são preparadas num rascunho. Ao ativá-lo, só os novos participantes recebem o novo conteúdo. As respostas anteriores ficam disponíveis no respetivo dataset.', 'Changes are prepared in a draft. Activation applies to new participants. Previous responses remain available in their original dataset.')}</p>
     {state && !content && <button disabled={busy || !state.active} onClick={() => run('create')}>{t('Preparar atualização', 'Prepare update')}</button>}
     {content && <fieldset disabled={busy} className="dataset-editor"><legend>{t('Rascunho', 'Draft')}</legend>
-      <p>{t('Edita as etapas, os textos, as perguntas de perfil e os exemplos. As alterações só entram no jogo depois da ativação.', 'Edit stages, wording, profile questions and examples. Changes reach the game only after activation.')}</p>
-      <label>{t('Nome do novo dataset', 'New dataset name')}<input maxLength={80} value={content.version} onChange={(e) => edit({ ...content, version: e.target.value })} /></label>
-      <label>{t('Descrição das alterações', 'Description of changes')}<textarea maxLength={2000} value={content.description} onChange={(e) => edit({ ...content, description: e.target.value })} /></label>
-      <p>{t('Página de exemplos', 'Examples page')} {examplePage + 1} / {Math.max(1, Math.ceil(content.snippets.length / pageSize))}
-        <button disabled={examplePage === 0} onClick={() => setExamplePage(p => p - 1)}>{t('Anterior', 'Previous')}</button>
-        <button disabled={(examplePage + 1) * pageSize >= content.snippets.length} onClick={() => setExamplePage(p => p + 1)}>{t('Seguinte', 'Next')}</button>
-      </p>
+      <p>{t('Escolhe uma etapa para editar. Guarda o rascunho para rever antes de ativar.', 'Choose a stage to edit. Save the draft to review before activation.')}</p>
       {!review && <>
+        <nav className="dataset-editor-tabs" aria-label={t('Secções do editor', 'Editor sections')}>
+          {[['visual', t('Comparações', 'Comparisons')], ['structure', t('Estrutura', 'Structure')], ['profile', t('Perfil', 'Profile')], ['settings', t('Identificação', 'Details')]].map(([key, label]) => <button type="button" key={key} aria-pressed={editorTab === key} onClick={() => setEditorTab(key)}>{label}</button>)}
+        </nav>
+        {editorTab === 'visual' && <DatasetVisualEditor content={content} onChange={edit} language={language} structureChanged={structureChanged} />}
+        {structureChanged && editorTab !== 'structure' && <p className="dataset-structure-warning">{t('A estrutura mudou. Abre “Estrutura” para regenerar os exemplos antes de guardar.', 'The structure changed. Open “Structure” to regenerate examples before saving.')}</p>}
+        {editorTab === 'settings' && <section>      <label>{t('Nome do novo dataset', 'New dataset name')}<input maxLength={80} value={content.version} onChange={(e) => edit({ ...content, version: e.target.value })} /></label>
+      <label>{t('Descrição das alterações', 'Description of changes')}<textarea maxLength={2000} value={content.description} onChange={(e) => edit({ ...content, description: e.target.value })} /></label>
+</section>}
+        {editorTab === 'structure' && <>
+
         <StageEditor stages={content.stages} onChange={stages => { edit({ ...content, stages }); setRegenerateConfirmed(false); }} language={language} t={t} />
         {structureChanged && <section className="dataset-structure-warning"><p>{t('A ordem, as etapas ou as alternativas mudaram. É necessário regenerar os exemplos para a nova estrutura. Isto substitui as edições manuais dos exemplos deste rascunho. Quando uma etapa precisa de código ainda não escolhido, é usada uma forma base, sem contar como preferência do participante. Revê também as descrições para corresponderem à nova ordem.', 'The order, stages or alternatives changed. Regenerate examples for the new structure. This replaces manual example edits in this draft. Stages that need code not yet chosen use a baseline form, which does not count as a participant preference. Also review descriptions to match the new order.')}</p>
           <label className="dataset-confirm"><input type="checkbox" checked={regenerateConfirmed} onChange={e => setRegenerateConfirmed(e.target.checked)} />{t('Substituir os exemplos do rascunho pela nova estrutura.', 'Replace draft examples with the new structure.')}</label>
           <button disabled={!regenerateConfirmed} onClick={() => run('regenerate')}>{t('Regenerar exemplos', 'Regenerate examples')}</button></section>}
-        <ProfileEditor questions={content.questions} onChange={questions => edit({ ...content, questions })} language={language} t={t} />
-        <h3>{t('Exemplos de código', 'Code examples')}</h3>
-        <p>{t('Existem várias combinações cumulativas. Revê também os exemplos que incluem escolhas das etapas anteriores.', 'Examples are cumulative. Also review combinations containing choices from earlier stages.')}</p>
-        <details><summary>{t('Abrir exemplos', 'Open examples')} ({content.snippets.length})</summary>
-        {content.snippets.slice(examplePage * pageSize, (examplePage + 1) * pageSize).map((s, offset) => <details key={s.id}><summary>{exampleTitle(s)}</summary>
-          <label>{t('Designação interna (não aparece no jogo)', 'Internal label (not shown in the game)')}<input maxLength={2000} value={s.label} onChange={(e) => changeRow('snippets', examplePage * pageSize + offset, 'label', e.target.value)} /></label>
-          <label>{t('Código', 'Code')}<textarea className="dataset-code" maxLength={20000} value={s.code} onChange={(e) => changeRow('snippets', examplePage * pageSize + offset, 'code', e.target.value)} /></label>
-        </details>)}
-        </details>
+        </>}
+        {editorTab === 'profile' && <ProfileEditor questions={content.questions} onChange={questions => edit({ ...content, questions })} language={language} t={t} />}
       </>}
       {saved && <p role="status">{t('Rascunho guardado e validado.', 'Draft saved and validated.')}</p>}
-      {review && <section><h3>{t('Rever antes de ativar', 'Review before activation')}</h3>
+      {review && <section><p>{t('Página de exemplos', 'Examples page')} {examplePage + 1} / {Math.max(1, Math.ceil(content.snippets.length / pageSize))}<button disabled={examplePage === 0} onClick={() => setExamplePage(p => p - 1)}>{t('Anterior', 'Previous')}</button><button disabled={(examplePage + 1) * pageSize >= content.snippets.length} onClick={() => setExamplePage(p => p + 1)}>{t('Seguinte', 'Next')}</button></p><h3>{t('Rever antes de ativar', 'Review before activation')}</h3>
         <p>{t('A validação verifica o preenchimento e a estrutura. Confirma o significado das perguntas e a coerência do código em todas as combinações.', 'Validation checks required fields and structure. Verify question meaning and code consistency in every combination.')}</p>
         <p>{content.stages.length} {t('etapas', 'stages')} · {content.stages.reduce((total, stage) => total + stage.styles.length - 1, 0)} {t('comparações por participante', 'comparisons per participant')} · {content.questions.length} {t('perguntas de perfil', 'profile questions')}</p>
         {content.stages.map((stage, i) => <details key={stage.category}><summary>{i + 1}. {stage[`title_${language}`]}</summary>{['pt', 'en'].map(lang => <div key={lang}><h4>{stage[`question_${lang}`]}</h4><p>{stage[`title_${lang}`]}</p><p>{stage[`intention_${lang}`]}</p></div>)}</details>)}

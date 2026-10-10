@@ -31,6 +31,7 @@ export function StageEditor({ stages, onChange, language, t }) {
       <fieldset><legend>{t('Alternativas incluídas (mínimo duas)', 'Included alternatives (at least two)')}</legend>
         {cumulativeOptions[stage.category].map(style => <label className="dataset-confirm" key={style}><input type="checkbox" checked={stage.styles.includes(style)} onChange={e => update(i, { styles: e.target.checked ? [...stage.styles, style] : stage.styles.filter(s => s !== style) })} />{labels.styles[style] || style}</label>)}
       </fieldset>
+      <details><summary>{t('Opções avançadas', 'Advanced options')}</summary><CustomOptions stage={stage} onChange={patch => update(i, patch)} language={language} t={t} /></details>
       <div className="dataset-text-preview"><strong>{t('Pré-visualização dos textos', 'Text preview')}</strong><h4>{stage[`question_${language}`]}</h4><p>{t('Etapa', 'Stage')} {i + 1} / {stages.length} — {stage[`title_${language}`]}</p><p>{stage[`intention_${language}`]}</p></div>
     </details>)}
     {available.length > 0 && <div className="dataset-actions"><label>{t('Categoria a adicionar', 'Category to add')}<select value={categoryToAdd} onChange={e => setSelected(e.target.value)}>{available.map(category => <option key={category} value={category}>{labels.categories[category]}</option>)}</select></label><button type="button" onClick={() => onChange([...stages, newStage(categoryToAdd)])}>{t('Adicionar etapa', 'Add stage')}</button></div>}
@@ -50,5 +51,27 @@ export function ProfileEditor({ questions, onChange, language, t }) {
       <button type="button" disabled={q.options.length >= 50} onClick={() => update(i, { options: [...q.options, { value: `option-${crypto.randomUUID()}`, pt: '', en: '' }] })}>{t('Adicionar opção', 'Add option')}</button>
     </details>)}
     <button type="button" disabled={questions.length >= 50} onClick={() => onChange([...questions, { id: `new-${crypto.randomUUID()}`, question_pt: '', question_en: '', options: [{ value: 'option-1', pt: '', en: '' }, { value: 'option-2', pt: '', en: '' }] }])}>{t('Adicionar pergunta de perfil', 'Add profile question')}</button>
+  </section>;
+}
+
+export function CustomOptions({ stage, onChange, language, t }) {
+  const options = stage.customOptions || [];
+  const labels = resultsTranslations[language];
+  function update(id, patch) { onChange({ customOptions: options.map(o => o.id === id ? { ...o, ...patch } : o) }); }
+  function add() {
+    const id = `custom_${crypto.randomUUID()}`;
+    onChange({ styles: [...stage.styles, id], customOptions: [...options, { id, pt: '', en: '', baseStyle: cumulativeOptions[stage.category][0], from: '', to: '' }] });
+  }
+  return <section className="dv-custom-options"><h4>{t('Alternativas personalizadas', 'Custom alternatives')}</h4>
+    <p className="dv-help">{t('Cria uma variante a partir de uma opção existente. A substituição é literal e aplica-se também às etapas seguintes, quando esta alternativa é escolhida.', 'Create a variant from an existing option. The literal replacement also applies to later stages when this alternative is chosen.')}</p>
+    {options.map((option, i) => <details key={option.id} open><summary>{option[language] || `${t('Nova alternativa', 'New alternative')} ${i + 1}`}</summary>
+      <label className="dataset-confirm"><input type="checkbox" checked={stage.styles.includes(option.id)} onChange={e => onChange({ styles: e.target.checked ? [...stage.styles, option.id] : stage.styles.filter(s => s !== option.id) })} />{t('Incluir nesta etapa', 'Include in this stage')}</label>
+      {['pt', 'en'].map(lang => <label key={lang}>{t('Nome', 'Name')} ({lang.toUpperCase()})<input maxLength={100} value={option[lang]} onChange={e => update(option.id, { [lang]: e.target.value })} /></label>)}
+      <label>{t('Partir da alternativa', 'Start from alternative')}<select value={option.baseStyle} onChange={e => update(option.id, { baseStyle: e.target.value })}>{cumulativeOptions[stage.category].map(style => <option key={style} value={style}>{labels.styles[style]}</option>)}</select></label>
+      <label>{t('Trecho original (exato)', 'Original fragment (exact)')}<textarea spellCheck={false} maxLength={2000} value={option.from} onChange={e => update(option.id, { from: e.target.value })} /></label>
+      <label>{t('Substituir por', 'Replace with')}<textarea spellCheck={false} maxLength={2000} value={option.to} onChange={e => update(option.id, { to: e.target.value })} /></label>
+      <button type="button" onClick={() => onChange({ styles: stage.styles.filter(s => s !== option.id), customOptions: options.filter(o => o.id !== option.id) })}>{t('Remover alternativa', 'Remove alternative')}</button>
+    </details>)}
+    <button type="button" disabled={options.length >= 8 || stage.styles.length >= 12} onClick={add}>+ {t('Adicionar alternativa', 'Add alternative')}</button>
   </section>;
 }

@@ -10,8 +10,8 @@ import { readStoredWinner } from "../game/gameUtils.js";
 
 export default function PublicResultsPage({ language, setLanguage }) {
   const navigate = useNavigate();
-  const text = resultsTranslations[language];
   const [data, setData] = useState(null);
+  const text = { ...resultsTranslations[language], styles: { ...resultsTranslations[language].styles, ...Object.fromEntries(Object.entries(data?.styleLabels || {}).map(([id, names]) => [id, names[language]])) } };
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState(false);
   const [revision, setRevision] = useState(0);

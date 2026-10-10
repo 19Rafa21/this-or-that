@@ -217,7 +217,7 @@ try {
   assert.equal(publicResponse.status, 200);
   assert.equal(publicResponse.headers.get("cache-control"), "no-store");
   const publicResults = await publicResponse.json();
-  assert.deepEqual(Object.keys(publicResults).sort(), ["categoryOrder", "finals", "generatedAt", "preferences", "profile", "skips", "summary"]);
+  assert.deepEqual(Object.keys(publicResults).sort(), ["categoryOrder", "finals", "generatedAt", "preferences", "profile", "skips", "styleLabels", "summary"]);
   assert.deepEqual(publicResults.summary, defaultResults.summary);
   assert.deepEqual(publicResults.preferences, defaultResults.preferences);
   assert.deepEqual(publicResults.finals, defaultResults.finals);
@@ -296,6 +296,9 @@ try {
   reordered.content.version = 'integration-reordered';
   reordered.content.stages = [reordered.content.stages.at(-1), reordered.content.stages[0]];
   reordered.content.stages[0].title_pt = 'Funções primeiro';
+  const customOption = {id:'custom_method',pt:'Método',en:'Method',baseStyle:'function_function',from:'function ',to:'method '};
+  reordered.content.stages[0].customOptions = [customOption];
+  reordered.content.stages[0].styles.push(customOption.id);
   reordered.content.questions = [];
   await management('save', { revision: reordered.revision, content: reordered.content }, 400);
   await management('regenerate', { revision: reordered.revision, content: reordered.content });
@@ -319,9 +322,17 @@ try {
   }
   const reorderedFinal = await post('final-results', { sessionId: reorderedSession.sessionId });
   assert.equal(reorderedFinal.result.categoryResults.length, 2);
-  assert.equal(round, 5);
+  assert.equal(round, 6);
+  assert.equal(reorderedFinal.result.winner.styleLabels.custom_method.pt, 'Método');
   const reorderedPublic = await (await fetch(`${base}/api/public/results`)).json();
   assert.deepEqual(reorderedPublic.categoryOrder, ['functions', 'variables']);
+  assert.deepEqual(reorderedPublic.styleLabels.custom_method, {pt:'Método',en:'Method'});
+  assert.ok(reorderedSession.comparisons.some(pair => [pair.snippet_a,pair.snippet_b].some(s => s.style === 'custom_method' && s.code.includes('method somarPares'))));
+  await management('create');
+  const customDraft = (await management('')).draft;
+  assert.deepEqual(customDraft.content.stages[0].customOptions, [customOption]);
+  customDraft.content.version = 'integration-custom-copy';
+  await management('save', {revision:customDraft.revision,content:customDraft.content});
   console.log('Dataset management: protected access, draft validation, stale revisions, activation, immutable history and ongoing sessions verified.');
   const logout = await fetch(`${base}/api/admin/logout`, { method: "POST", headers: { Authorization: `Bearer ${login.token}` } });
   assert.equal(logout.status, 200);

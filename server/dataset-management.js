@@ -23,6 +23,9 @@ async function sourceContent(db, id) {
   return { questions, snippets, comparisons, stages: stagesFromSource(snippets, comparisons) };
 }
 
+function generateValidated(stages) {
+  try { return generateStructure(stages); } catch (error) { throw new InputError(error.message); }
+}
 const text = (value, max) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 export function validateStages(stages) {
   if (!Array.isArray(stages) || !stages.length || stages.length > 7) throw new InputError('Escolhe entre uma e sete etapas.');
@@ -30,12 +33,29 @@ export function validateStages(stages) {
   for (const stage of stages) {
     if (!stage || !Object.hasOwn(cumulativeOptions, stage.category) || seen.has(stage.category)) throw new InputError('Etapa inválida ou repetida.');
     seen.add(stage.category);
-    if (!Array.isArray(stage.styles) || stage.styles.length < 2 || new Set(stage.styles).size !== stage.styles.length || stage.styles.some(s => !cumulativeOptions[stage.category].includes(s))) throw new InputError('Cada etapa precisa de pelo menos duas alternativas válidas.');
+    const custom = stage.customOptions || [];
+    if (!Array.isArray(custom) || custom.length > 8) throw new InputError('Cada etapa pode ter até oito alternativas personalizadas.');
+    const customIds = new Set();
+    for (const option of custom) {
+      if (!option || !/^custom_[a-z0-9-]{1,60}$/.test(option.id) || customIds.has(option.id) ||
+          !text(option.pt, 100) || !text(option.en, 100) || !cumulativeOptions[stage.category].includes(option.baseStyle) ||
+          !text(option.from, 2000) || typeof option.to !== 'string' || option.to.length > 2000 || option.from === option.to) {
+        throw new InputError('Preenche o nome nas duas línguas, a alternativa de base e uma substituição diferente para cada nova opção.');
+      }
+      customIds.add(option.id);
+    }
+    if (!Array.isArray(stage.styles) || stage.styles.length < 2 || stage.styles.length > 12 || new Set(stage.styles).size !== stage.styles.length || stage.styles.some(s => !cumulativeOptions[stage.category].includes(s) && !customIds.has(s))) throw new InputError('Cada etapa precisa de pelo menos duas alternativas válidas.');
     if (['title_pt', 'title_en', 'question_pt', 'question_en', 'intention_pt', 'intention_en'].some(k => !text(stage[k], 2000))) throw new InputError('Preenche os títulos, perguntas e descrições das etapas nas duas línguas.');
+  }
+  let branches = 1, count = 0, pairs = 0;
+  for (const stage of stages) {
+    pairs += branches * stage.styles.length * (stage.styles.length - 1) / 2;
+    branches *= stage.styles.length; count += branches;
+    if (count > 20000 || pairs > 40000) throw new InputError('Demasiadas combinações. Reduz as alternativas ou as etapas.');
   }
 }
 export function draftBlueprint(content, source) {
-  if (content.generated) return generateStructure(content.stages);
+  if (content.generated) return generateValidated(content.stages);
   if (structureKey(content.stages) !== structureKey(source.stages)) throw new InputError('A estrutura mudou. Regenera os exemplos antes de guardar.');
   return source;
 }
@@ -101,7 +121,7 @@ export function registerDatasetManagement(app, pool, authorize, route) {
           content = { ...content, stages: content?.stages || source.stages };
           if (action === 'regenerate') {
             validateStages(content.stages);
-            content = { ...content, generated: true, structureKey: structureKey(content.stages), snippets: generateStructure(content.stages).snippets };
+            content = { ...content, generated: true, structureKey: structureKey(content.stages), snippets: generateValidated(content.stages).snippets };
           }
           validateDraft(content, source);
           if ((await db.query('SELECT id FROM datasets WHERE version=$1', [content.version])).rows.length) throw new InputError('Já existe um dataset com esse nome. Escolhe outro.');
