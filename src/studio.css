@@ -1,5 +1,5 @@
-/* Visual refresh: the study keeps its purple identity, with quieter controls and
-   more space for the participant's code. */
+/* Apresentação do estudo: preserva a identidade roxa, com controlos discretos e
+   mais espaço para o código do participante. */
 :root {
   --studio-bg: #191127;
   --studio-surface: #21172f;
@@ -46,7 +46,7 @@ body, .app-page { background: var(--studio-bg); color: var(--studio-text); }
 .studio-eyebrow { display: flex; align-items: center; gap: 9px; margin: 0; color: #c6b2df; font-size: .66rem; font-weight: 800; line-height: 1.5; letter-spacing: .16em; text-transform: uppercase; }
 .status-dot { display: inline-block; flex-shrink: 0; width: 6px; height: 6px; background: var(--studio-mint); border-radius: 50%; }
 
-/* A short introduction to the study, with an example of a comparison. */
+/* Breve introdução ao estudo, com um exemplo de comparação. */
 .landing-studio { position: relative; z-index: 1; width: min(1050px, 100%); min-height: 100svh; margin: auto; padding: 130px 38px 30px; display: flex; flex-direction: column; }
 .landing-heading { border-bottom: 1px solid var(--studio-line); padding-bottom: 24px; }
 .landing-heading h1 { font-family: 'Coiny', sans-serif; color: #cfb5ef; font-size: clamp(2.5rem, 6vw, 3.6rem); margin: 0 0 6px; font-weight: 400; }
@@ -65,7 +65,7 @@ body, .app-page { background: var(--studio-bg); color: var(--studio-text); }
 .landing-bottom { display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--studio-line); padding-top: 20px; color: #ad9cbe; font-size: .75rem; }
 .landing-bottom button { background: transparent; color: #ceb9e3; border: 0; padding: 8px 0; text-decoration: underline; cursor: pointer; font: inherit; }
 
-/* The completed composition becomes the reward; no detached trophy. */
+/* A composição concluída constitui a recompensa apresentada ao participante. */
 .result-studio { width: min(1180px, 100%); margin: auto; padding: 114px 38px 30px; }
 .result-hero { display: grid; grid-template-columns: 1fr 270px; align-items: center; gap: 30px; margin-bottom: 40px; }
 .result-hero h1 { font-size: clamp(2.8rem, 5.5vw, 4.4rem); line-height: 1.02; letter-spacing: -.06em; margin: 20px 0; font-weight: 800; }
@@ -128,7 +128,7 @@ body, .app-page { background: var(--studio-bg); color: var(--studio-text); }
 @media (max-width: 680px) { .signature-art { display: none; }.app-page::before { height: 76px; } }
 @media (max-width: 680px) { .code-grid .code-area { min-height: 160px; } }
 
-/* Shared participant pages: plain surfaces and a consistent purple palette. */
+/* Páginas partilhadas da área de participação: fundos simples e uma paleta roxa consistente. */
 .app-page { background-image: none; }
 .primary-button, .result-primary { border-radius: 5px; min-height: 46px; padding: 12px 22px; font-weight: 700; }
 .primary-button:hover, .result-primary:hover { transform: none; }

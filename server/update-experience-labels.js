@@ -1,4 +1,4 @@
-// One-time, guarded wording correction. Canonical answer values are unchanged.
+// Correção pontual do texto com verificações de segurança. Os valores canónicos das respostas mantêm-se inalterados.
 import "dotenv/config";
 import pg from "pg";
 import assert from "node:assert/strict";

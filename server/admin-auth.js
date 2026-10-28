@@ -19,7 +19,7 @@ export function createAdminAuth({
   now = Date.now,
 } = {}) {
   const sessions = new Map();
-  // Account-wide limit: independent of spoofable proxy headers. One admin account per deployment.
+  // Limite aplicado à conta, independente de cabeçalhos de proxy falsificáveis. Uma conta de administração por instalação.
   const attempts = [];
   const config = () => {
     const value = configuration();
@@ -54,7 +54,7 @@ export function createAdminAuth({
       if (!timingSafeEqual(actual, Buffer.from(expected, "hex")) || username !== settings.username) {
         return res.status(401).json({ error: "invalid_credentials" });
       }
-      // Keep bounded memory, including during repeated legitimate logins.
+      // Limita a utilização de memória, incluindo durante inícios de sessão legítimos e repetidos.
       if (sessions.size >= 20) sessions.delete(sessions.keys().next().value);
       const token = randomBytes(32).toString("hex");
       const expiresAt = now() + 3600000;

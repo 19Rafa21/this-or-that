@@ -1,4 +1,4 @@
-// Only shared question content is cached. Participant answers always come from PostgreSQL.
+// Apenas o conteúdo partilhado das perguntas é guardado em cache. As respostas dos participantes são sempre lidas do PostgreSQL.
 export function createDatasetLoader({ ttlMs = 30000, now = Date.now } = {}) {
   const cache = new Map();
   return async function loadDataset(database, datasetId) {

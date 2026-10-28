@@ -218,7 +218,7 @@ export const comparisons = [
 
 const option = (value, pt, en) => ({ value, pt, en });
 
-// Ordered as two short profile breaks, then age after the final comparisons.
+// As perguntas de perfil são distribuídas por duas pausas curtas, seguidas da idade após as últimas comparações.
 const languageOptions = [
   option("python", "Python", "Python"),
   option("javascript", "JavaScript", "JavaScript"),

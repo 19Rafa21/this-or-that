@@ -1,5 +1,5 @@
-// Token LCS keeps shared code readable and marks only inserted/removed syntax.
-// Whitespace is preserved exactly but never highlighted by itself.
+// A maior subsequência comum de tokens mantém o código partilhado legível e assinala apenas a sintaxe inserida ou removida.
+// Os espaços em branco são preservados exatamente, mas nunca são destacados isoladamente.
 export function compareCode(left, right) {
   const tokenize = code => code.match(/\w+|\s+|[^\w\s]/gu) || [];
   const a = tokenize(left), b = tokenize(right);
@@ -18,7 +18,7 @@ export function compareCode(left, right) {
   return { left: parts(a, sameA), right: parts(b, sameB) };
 }
 
-// Empty visual rows align matching source lines; they never enter saved code.
+// As linhas visuais vazias alinham as linhas de código correspondentes; nunca são incluídas no código guardado.
 export function compareAlignedCode(left, right) {
   const diff = compareCode(left, right);
   const split = parts => {

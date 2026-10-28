@@ -104,7 +104,7 @@ export function registerDatasetManagement(app, pool, authorize, route) {
       const db = await pool.connect();
       try {
         await db.query('BEGIN');
-        // Serialize creation, editing and activation, including the empty-draft case.
+        // Serializa a criação, a edição e a ativação, incluindo o caso em que ainda não existe um rascunho.
         await db.query('LOCK TABLE datasets IN SHARE ROW EXCLUSIVE MODE');
         const active = (await db.query('SELECT * FROM datasets WHERE active')).rows[0];
         const draft = (await db.query('SELECT * FROM dataset_draft WHERE id=1 FOR UPDATE')).rows[0];
@@ -117,7 +117,7 @@ export function registerDatasetManagement(app, pool, authorize, route) {
           if (!draft || draft.revision !== req.body?.revision) throw new InputError('O rascunho mudou. Atualiza a página antes de continuar.', 409);
           const source = await sourceContent(db, draft.source_id);
           let content = action === 'activate' ? draft.content : req.body.content;
-          // Upgrade drafts saved by the previous editor without rewriting their examples.
+          // Atualiza os rascunhos guardados pelo editor anterior sem reescrever os seus exemplos.
           content = { ...content, stages: content?.stages || source.stages };
           if (action === 'regenerate') {
             validateStages(content.stages);

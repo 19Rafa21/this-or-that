@@ -114,7 +114,7 @@ export async function loadStudyResults(pool, filters, { activeOnly = false } = {
   } finally { client.release(); }
 }
 
-// Public overview: fixed scope, explicit aggregate fields, no dataset catalogue or filters.
+// Resumo público: âmbito fixo, campos agregados explícitos, sem catálogo de conjuntos de dados nem filtros.
 export async function loadPublicResults(pool) {
   const data = await loadStudyResults(pool, parseResultFilters(), { activeOnly: true });
   return {

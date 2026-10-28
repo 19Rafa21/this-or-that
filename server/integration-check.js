@@ -9,7 +9,7 @@ import { DATASET, comparisons, profileQuestions } from "./seed-data.js";
 import { apiSnippets, simulateGame } from "./test-fixtures.js";
 import { createAdminAuth, hashAdminPassword } from "./admin-auth.js";
 
-// Use a separate, randomly named schema. Never seed or delete public tables.
+// Usa um esquema separado com um nome aleatório. Nunca preenche nem elimina tabelas do esquema público.
 const schema = `this_or_that_test_${randomBytes(8).toString("hex")}`;
 const config = { connectionString: process.env.DATABASE_URL,
   ssl: process.env.DATABASE_SSL === "false" ? false : { rejectUnauthorized: false }, connectionTimeoutMillis: 15000 };
@@ -102,7 +102,7 @@ try {
   const counts = (await pool.query("SELECT (SELECT count(*) FROM choices) AS choices, (SELECT count(*) FROM final_results) AS results")).rows[0];
   assert.equal(Number(counts.choices), 28);
   assert.equal(Number(counts.results), 2);
-  // Test analytics only against this isolated schema; never create real study responses.
+  // Testa a análise apenas neste esquema isolado; nunca cria respostas no estudo real.
   await pool.query("UPDATE game_sessions SET created_at = '2026-09-25T12:00:00Z', finished_at = '2026-09-25T12:10:00Z'");
   await pool.query(`INSERT INTO game_sessions(id, dataset_id, interface_language, created_at)
     VALUES ('unfinished-test', $1, 'pt', '2026-09-26T00:00:00Z')`, [DATASET.id]);
@@ -137,7 +137,7 @@ try {
   assert.equal(empty.summary.started, 0);
   assert.equal(empty.preferences.length, 0);
   await getResults("?from=2026-02-30", 400);
-  // Exercise conjunction on the same session, using the requested age + Pascal example.
+  // Testa a combinação de condições na mesma sessão, usando o exemplo de idade e linguagem Pascal.
   const ageId = profileQuestions.find((q) => q.id.endsWith(":age-band")).id;
   const firstId = profileQuestions.find((q) => q.id.endsWith(":first-language")).id;
   await pool.query("UPDATE profile_answers SET answer_value = '55_or_more' WHERE question_id = $1 AND answer_value <> 'skipped'", [ageId]);
@@ -169,7 +169,7 @@ try {
   assert.equal((await filtered({})).summary.started, 3);
   await filtered({[ageId]: "invented"}, {}, 400);
   await filtered({"other-dataset:age-band": "55_or_more"}, {}, 400);
-  // Historical content and responses remain scoped to their own dataset.
+  // O conteúdo e as respostas históricos permanecem associados ao respetivo conjunto de dados.
   await pool.query(`INSERT INTO datasets(id, version, description, created_at) VALUES
     ('history', 'history', 'Isolated historical fixture', '2020-01-01'),
     ('empty', 'empty', 'Isolated empty fixture', '2030-01-01')`);
@@ -229,7 +229,7 @@ try {
   }
   assert.equal((await fetch(`${base}/api/admin/results`)).status, 401);
   assert.equal((await fetch(`${base}/api/export/sessions.csv`)).status, 401);
-  // A new active study with no responses must never publish historical data as fallback.
+  // Um novo estudo ativo sem respostas nunca deve apresentar dados históricos como alternativa.
   await pool.query("UPDATE datasets SET active = false WHERE active");
   await pool.query("UPDATE datasets SET active = true WHERE id = 'empty'");
   const emptyPublic = await (await fetch(`${base}/api/public/results`)).json();

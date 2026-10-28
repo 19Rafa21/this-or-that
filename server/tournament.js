@@ -19,7 +19,7 @@ function sameContext(snippet, styles) {
   return Object.entries(context).every(([key, value]) => styles[key] === value);
 }
 
-// Skipping carries the left snippet for composition, not as a preference.
+// Ao saltar, o excerto da esquerda é mantido para continuar a composição, sem contar como preferência.
 export function replayTournament(comparisons, choices) {
   const byId = comparisonIndex(comparisons).byId;
   const carriedStyles = {};

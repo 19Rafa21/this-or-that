@@ -1,4 +1,4 @@
-# React routes are served by the same entry point as the home page.
+# As rotas do React são servidas pelo mesmo ponto de entrada da página inicial.
 RewriteEngine On
 RewriteBase /~pg55999/
 

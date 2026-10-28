@@ -76,7 +76,7 @@ test("rota Excel exige token e entrega um XLSX sem cache", async () => {
     return { query: async () => ({ rows: [] }), release() {} };
   } };
   const app = createApp(pool);
-  // Exercise the registered middleware and route without opening a network port.
+  // Testa a função intermédia e a rota registadas sem abrir uma porta de rede.
   const auth = app._router.stack.find((layer) => layer.name === "authorizeExport").handle;
   const route = app._router.stack.find((layer) => layer.route?.path === "/api/export/results.xlsx").route.stack[0].handle;
   const res = { headers: {}, status(code) { this.code = code; return this; }, json() {},

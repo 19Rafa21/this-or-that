@@ -266,7 +266,7 @@ export default function GamePage({ language, setLanguage }) {
         ...gameState,
         flow: resolution.flow,
         comparisons: availableComparisons,
-        // This is the composition context; confirmed preferences come from the API.
+        // Este é o contexto da composição; as preferências confirmadas são obtidas através da API.
         selectedStyles: resolution.selectedStyles,
         answers,
         categoryWinners: resolution.categoryFinished && !categoryHasSkips

@@ -1,7 +1,7 @@
 import { contextComparisons } from "./comparisonIndex.js";
 export const SKIPPED_VALUE = "skipped";
-// The profile changed with dataset 2026.6. Start a fresh local flow after upgrading;
-// previously submitted answers remain associated with their original dataset.
+// O perfil mudou com o conjunto de dados 2026.6. Após a atualização, inicia-se um novo percurso local;
+// as respostas já submetidas mantêm-se associadas ao conjunto de dados original.
 export const GAME_STATE_VERSION = 5;
 
 const EXCLUDED_LANGUAGES = new Set([SKIPPED_VALUE, "unknown", ""]);

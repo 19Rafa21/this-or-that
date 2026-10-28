@@ -90,9 +90,9 @@ const styles = [
   },
 ];
 
-// These alternatives name syntax features, not languages: C and Java share
-// the parenthesized condition. Inventing a library call to distinguish them
-// would change what the comparison measures.
+// Estas alternativas identificam características sintáticas, não linguagens: C e Java partilham
+// a condição entre parênteses. Introduzir uma chamada a uma biblioteca para as distinguir
+// alteraria aquilo que a comparação mede.
 const conditionalStyles = [
   { id: "parenthesized", style: "condition_parenthesized", label: "if (…)", header: (condition) => `if (${condition})` },
   { id: "plain", style: "condition_plain", label: "if …", header: (condition) => `if ${condition}` },
@@ -100,8 +100,8 @@ const conditionalStyles = [
 ];
 
 function renderConditional(loopStyle, conditionalStyle) {
-  // The arithmetic and assignment are identical within each comparison;
-  // only the conditional header varies. Delimiters inherit the loop choice.
+  // A aritmética e a atribuição são idênticas em cada comparação;
+  // apenas o cabeçalho da condição varia. Os delimitadores respeitam a escolha do ciclo.
   const pascal = loopStyle.id === "pascal";
   const header = conditionalStyle.header(pascal ? "i mod 2 = 0" : "i % 2 == 0");
   if (pascal) return `${header}\nbegin\n  total := total + i;\nend;`;
@@ -231,7 +231,7 @@ export const comparisons = [
 
 const option = (value, pt, en) => ({ value, pt, en });
 
-// Ordered as two short profile breaks, then age after the final comparisons.
+// As perguntas de perfil são distribuídas por duas pausas curtas, seguidas da idade após as últimas comparações.
 const languageOptions = [
   option("python", "Python", "Python"),
   option("javascript", "JavaScript", "JavaScript"),

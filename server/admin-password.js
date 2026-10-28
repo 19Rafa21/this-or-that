@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { Writable } from "node:stream";
 import { hashAdminPassword } from "./admin-auth.js";
 
-// Run interactively. Password input is never echoed or passed as a shell argument.
+// Executar num terminal interativo. A palavra-passe nunca é apresentada no ecrã nem passada como argumento de linha de comandos.
 if (!process.stdin.isTTY) {
   console.error("Run npm run admin:password in an interactive terminal.");
   process.exitCode = 1;

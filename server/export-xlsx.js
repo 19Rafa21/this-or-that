@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { exportQueries } from "./exports.js";
 
-// A single snapshot keeps the four sheets consistent while new answers arrive.
+// Uma única leitura consistente dos dados mantém as quatro folhas coerentes enquanto chegam novas respostas.
 export async function loadExportSnapshot(pool) {
   const client = await pool.connect();
   try {
@@ -32,9 +32,9 @@ function cellValue(value) {
   if (value == null) return null;
   if (value instanceof Date || typeof value === "number" || typeof value === "boolean") return value;
   const text = typeof value === "object" ? JSON.stringify(value) : String(value);
-  // Excel cannot preserve more than 32767 characters in one cell.
+  // O Excel não permite guardar mais de 32767 caracteres numa célula.
   if (text.length > 32767) throw new Error("Export cell exceeds Excel's text limit; use CSV instead");
-  return text; // Strings beginning with '=' remain text, never formula objects.
+  return text; // As cadeias de caracteres que começam por '=' mantêm-se como texto, sem serem convertidas em fórmulas.
 }
 
 function addSheet(book, name, columns, rows) {

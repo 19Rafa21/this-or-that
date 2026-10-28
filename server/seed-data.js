@@ -38,7 +38,7 @@ expand(0, {}, []);
 
 const option = (value, pt, en) => ({ value, pt, en });
 
-// Five short profile breaks across the study, ending with age after functions.
+// Cinco pausas curtas para perguntas de perfil ao longo do estudo, terminando com a idade após a etapa das funções.
 const languageOptions = [
   option("python", "Python", "Python"),
   option("javascript", "JavaScript", "JavaScript"),

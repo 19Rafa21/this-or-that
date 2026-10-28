@@ -39,7 +39,7 @@ export default function DatasetManager({ token, onActivated, language }) {
       if (action === 'activate') onActivated(result.active.id);
     } catch (err) {
       let message;
-      try { message = JSON.parse(err.message).error; } catch { /* Network errors use a friendly fallback. */ }
+      try { message = JSON.parse(err.message).error; } catch { /* Os erros de rede usam uma mensagem alternativa compreensível. */ }
       setError(err.status === 401 ? t('A sessão expirou. Volta a entrar.', 'Your session expired. Sign in again.') : message || t('Não foi possível guardar. Tenta novamente.', 'Could not save. Try again.'));
     } finally { setBusy(false); }
   }

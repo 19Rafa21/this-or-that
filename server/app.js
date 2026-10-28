@@ -155,7 +155,7 @@ export function createApp(pool, { adminAuth = createAdminAuth() } = {}) {
   }
 
   app.use((error, _req, res, _next) => {
-    // Express identifies error middleware by its four arguments.
+    // O Express identifica as funções de tratamento de erros pelos seus quatro argumentos.
     void _next;
     const status = error instanceof InputError ? error.status : error.status === 400 ? 400 : 500;
     if (status === 500) console.error("API request failed:", error.code || error.name);

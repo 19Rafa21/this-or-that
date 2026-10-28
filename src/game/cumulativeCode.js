@@ -1,5 +1,5 @@
-// Pure renderer shared by dataset generation and regression tests. Published
-// datasets store its output, so a future renderer cannot rewrite old answers.
+// Função pura de composição de código, partilhada pela geração dos conjuntos de dados e pelos testes de regressão.
+// Os conjuntos publicados guardam o resultado, para que futuras alterações à função não reescrevam respostas antigas.
 export const cumulativeOptions = {
   variables: ['c_style', 'python_style', 'java_style', 'pascal_style'],
   blocks: ['block_braces', 'block_indent', 'block_begin_end'],

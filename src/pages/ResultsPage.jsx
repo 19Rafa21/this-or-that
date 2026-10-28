@@ -64,7 +64,7 @@ export default function ResultsPage({ language, setLanguage }) {
     requestNumber.current++;
     setAuth(null); setData(null); setDatasets([]); setError(""); setBusy(false);
     setFilters({ from: "", to: "", status: "all", datasetId: "", profile: {} });
-    try { await adminLogout(session.token); } catch { /* Local access is cleared; the server session expires automatically. */ }
+    try { await adminLogout(session.token); } catch { /* O acesso local é removido; a sessão no servidor expira automaticamente. */ }
   }
 
   function apply(event) {

@@ -1,5 +1,29 @@
-# Logs
-logs
+# Dependências e ficheiros gerados pela compilação
+node_modules/
+dist/
+dist-ssr/
+coverage/
+
+# Configuração local dos ambientes; publicar apenas os modelos
+.env
+.env.*
+!.env.example
+
+# Exportações dos participantes e cópias de segurança da base de dados
+server/exports/
+server/backups/
+server/*.sqlite
+server/*.sqlite3
+server/*.db
+
+# Relatórios locais, pré-visualizações e ficheiros de trabalho
+/output/
+/tmp/
+/.preview/
+*.local
+
+# Registos de execução
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,26 +31,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-.env
-.env.local
-.env.production
-dist
-dist-ssr
-server/exports/
-server/backups/
-*.local
-
-# Editor directories and files
+# Editores e sistemas operativos
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
-# Local-only design demonstrations
-.preview/

@@ -42,8 +42,8 @@ export function newStage(category) {
     intention_en: 'Compare the highlighted alternatives. Previous choices are retained.' };
 }
 
-// Supply neutral scaffolding when a decision appears before its usual dependencies.
-// Only actual decisions enter inherited_styles; scaffolding is never a recorded preference.
+// Fornece uma estrutura base neutra quando uma decisão surge antes das suas dependências habituais.
+// Apenas as decisões efetivas entram em inherited_styles; a estrutura base nunca é registada como preferência.
 export function renderOrderedCode(styles) {
   const context = { ...styles };
   if (context.logical) context.conditionals ||= 'condition_parenthesized';
